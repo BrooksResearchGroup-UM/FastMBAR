@@ -1,0 +1,5 @@
+*~
+build/*
+dist/*
+FastMBAR.egg-info/*
+__*__
