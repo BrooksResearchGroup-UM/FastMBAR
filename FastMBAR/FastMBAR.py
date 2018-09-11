@@ -80,7 +80,7 @@ class FastMBAR():
         return (loss.cpu().detach().numpy().astype(np.float64),
                 bias_energy_nz.cpu().grad.numpy().astype(np.float64))
 
-    def calculate_free_energies(self, verbose = False):
+    def calculate_free_energies(self, initial_F = None, verbose = False):
         """ calculate the relative free energies for all states
 
         Parameters
@@ -94,11 +94,20 @@ class FastMBAR():
             the relative unitless free energies for all states
 
         """
+
+        if initial_F is None:
+            x0 = self.energy_nz.new(self.num_states_nz).zero_()
+            x0 = x0.cpu().numpy()
+        else:
+            assert(isinstance(initial_F, np.ndarray))
+            assert(initial_F.ndim == 1)
+            assert(len(initial_F) == self.num_states)
+            initial_F_nz = initial_F[self.flag_nz]
+            initial_F_nz = self.energy_nz.new(initial_F_nz)
+            sample_prop_nz = self.num_conf_nz / torch.sum(self.num_conf_nz)
+            x0 = - torch.log(sample_prop_nz) - initial_F_nz
+            x0 = x0.cpu().numpy()
         
-        x0 = self.energy_nz.new(self.num_states_nz).zero_()
-        x0 = x0.cpu().numpy()
-        
-        #x, f, d = optimize.fmin_l_bfgs_b(self._loss_nz, x0, iprint = verbose, factr = 1e5)
         x, f, d = optimize.fmin_l_bfgs_b(self._loss_nz, x0, iprint = verbose)
         self.bias_energy_nz = self.energy_nz.new(x)
         if self.cuda:

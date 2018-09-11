@@ -1,5 +1,6 @@
 *~
 build/*
 dist/*
+test/*
 FastMBAR.egg-info/*
 __*__
