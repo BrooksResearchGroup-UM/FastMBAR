@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-with open("README.rst", 'r') as file_handle:
+with open("README.md", 'r') as file_handle:
     long_description = file_handle.read()
 
 setup(
     name = "FastMBAR",
-    version = "0.0.0a2",
+    version = "0.0.1",
     author = "Xinqiang (Shawn) Ding",
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
