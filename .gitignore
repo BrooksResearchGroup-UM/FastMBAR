@@ -2,5 +2,6 @@
 build/*
 dist/*
 test/*
+conda_output/*
 FastMBAR.egg-info/*
 __*__

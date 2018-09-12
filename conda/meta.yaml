@@ -1,45 +1,26 @@
-{% set name = "fastmbar" %}
-{% set version = "0.0.0a4" %}
-
 package:
-  name: "{{ name|lower }}"
-  version: "{{ version }}"
+  name: fastmbar
+  version: "0.0.2"
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 3b654e417b27fab1ced27ad9c5b627747c1bb4a37fc4674c3e88690c255b0b9b
-
-build:
-  number: 0
-  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vvv "
+  path: ../
 
 requirements:
-  host:
-    - numpy >=1.14.0
-    - pip
-    - pip
+  build:
     - python
+    - setuptools
+    - numpy >=1.14.0
     - scipy >=1.1.0
-    - torch >=0.4.0
+    - pytorch >=0.4.0
+    
   run:
-    - numpy >=1.14.0
     - python
+    - numpy >=1.14.0
     - scipy >=1.1.0
-    - torch >=0.4.0
-
-test:
-  imports:
-    - FastMBAR
+    - pytorch >=0.4.0
 
 about:
-  home: https://github.com/xqding/MBAR_PyTorch
-  license: MIT
+  home: https://github.com/xqding/FastMBAR
+  license: MIT License
+  summary: 'A fast solver for large scale MBAR/UWHAM equations'
   license_family: MIT
-  license_file: 
-  summary: A fast solver for large scale MBAR/UWHAM equations
-  doc_url: 
-  dev_url: 
-
-extra:
-  recipe-maintainers:
-    - your-github-id-here
