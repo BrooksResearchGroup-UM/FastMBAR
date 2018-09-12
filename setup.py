@@ -5,13 +5,13 @@ with open("README.md", 'r') as file_handle:
 
 setup(
     name = "FastMBAR",
-    version = "0.0.1",
+    version = "0.0.2",
     author = "Xinqiang (Shawn) Ding",
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
     long_description = long_description,
     long_description_content_type = "text/markdown",
-    url = "https://github.com/xqding/MBAR_PyTorch",
+    url = "https://github.com/xqding/FastMBAR",
     packages = find_packages(),
     install_requires=['numpy>=1.14.0',
                       'scipy>=1.1.0',
