@@ -11,7 +11,8 @@ class FastMBAR():
     """
     The FastMBAR class is initialized with an energy matrix and an array
     of num of conformations. After initizlization, the FastMBAR class method
-    solve is used to calculate the relative free energyies for all states.
+    calculate_free_energies is used to calculate the relative free energyies 
+    for all states.
 
     """
     
@@ -24,13 +25,19 @@ class FastMBAR():
             A 2-D ndarray with size of M x N, where M is the number of stats
             and N is the total number of conformations. The entry energy[i,j]
             is the reduced (unitless) energy of conformation j in state i.
+            If bootstrapping is used to calculate the uncertainty, the order
+            of conformations matters. Conformations sampled from one state
+            need to occpy a continuous chunk of collumns. Conformations sampled
+            from state k need to occupy collumns to the left of conformations 
+            sampled from state l if k < l. If bootstrapping is not used, then 
+            the order of conformation does not matter.
         num_conf: 1-D int ndarray with size (M)
             A 1-D ndarray with size of M, where num_conf[i] is the num of 
             conformations sampled from state i. Therefore, np.sum(num_conf)
             has to be equal to N.
         cuda: bool, optional
-            If it is set to be True, then the calculation in FastMBAR.solve will be
-            run on graphical processing units (GPUs).        
+            If it is set to be True, then the calculation in FastMBAR.calculate_free_energies 
+            will be run on graphical processing units (GPUs) using CUDA.
         """
         self.cuda = cuda
         
@@ -80,17 +87,21 @@ class FastMBAR():
         return (loss.cpu().detach().numpy().astype(np.float64),
                 bias_energy_nz.cpu().grad.numpy().astype(np.float64))
 
-    def calculate_free_energies(self, initial_F = None, verbose = False):
-        """ calculate the relative free energies for all states
+    
+    def _solve_mbar_equation(self, initial_F = None, verbose = False):
+        """ calculate the relative free energies for all states by
+        solving the MBAR equation once with the initial guess of initial_F
 
         Parameters
         ----------
+        initial_F: 1-D float ndarray with size of (M,)
+            starting point used to solve the MBAR equations
         verbose: bool, optional
             if verbose is true, the detailed information of running
             LBFGS optimization is printed.
         Returns
         -------
-        F: 1-D float array with size of (M)
+        F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
         """
@@ -147,8 +158,82 @@ class FastMBAR():
                 
         self.F = self.F - self.F[0]
         self.bias_energy_nz = -torch.log(sample_prop_nz) - self.F[torch.ByteTensor(self.flag_nz.astype(int))]
-        
+
         return self.F.cpu().numpy()
+
+    def calculate_free_energies(self, bootstrap = False, block_size = 3, num_rep = 100,
+                                verbose = False):
+        
+        """ calculate the relative free energies for all states
+        
+        Parameters
+        ----------
+        bootstrap: bool, optional
+            if bootstrap is true, block bootstrapping is used to estimate
+            the uncertainty of the calculated relative free energies
+        block_size: int, optional
+            the size of block used in block bootstrapping
+        num_rep: int, optional
+            the number of repeats used in bootstrapping to estimate uncertainty
+        verbose: bool, optional
+            if verbose is true, the detailed information of running
+            LBFGS optimization is printed.
+
+        Returns
+        -------
+        (F, F_std): 
+          F: 1-D float array with size of (M,)
+              the relative unitless free energies for all states
+          F_std: 1-D float array with size of (M,) if bootstrap = True.
+                 Otherwise, it is None
+              the uncertainty of F calculated using block bootstrapping 
+        """
+        if bootstrap:
+            num_conf_nz = self.num_conf[self.flag_nz]
+            num_conf_nz = num_conf_nz.astype(np.int)
+            num_conf_nz_cumsum = list(np.cumsum(num_conf_nz))
+            num_conf_nz_cumsum.pop(-1)
+            num_conf_nz_cumsum = [0] + num_conf_nz_cumsum
+            initial_F = np.zeros(self.num_states)
+            bootstrap_F = []
+            for _k in range(num_rep):
+                print(_k)
+                conf_idx = []
+                
+                for i in range(len(num_conf_nz)):
+                    len_seq = num_conf_nz[i] ## using circular block bootstrap
+                    num_sample_block = int(np.ceil(len_seq/block_size))
+                    idxs = np.random.choice(int(len_seq), num_sample_block, replace = True)
+                    sample_idx = []
+                    for idx in idxs:
+                        sample_idx += list(range(idx, idx+block_size))
+
+                    for k in range(len(sample_idx)):
+                        sample_idx[k] = np.mod(sample_idx[k], len_seq)
+                        
+                    if len(sample_idx) > len_seq:
+                        pop_idx = np.random.choice(len(sample_idx), 1)[0]
+                        for k in range(pop_idx, pop_idx+len(sample_idx)-len_seq):
+                            k = np.mod(k, len(sample_idx))
+                            sample_idx.pop(k)
+                        
+                    assert(len(sample_idx) == len_seq)
+                    conf_idx += [ idx + num_conf_nz_cumsum[i] for idx in sample_idx]
+                    
+                assert(len(conf_idx) == self.tot_num_conf)
+                sub_mbar = FastMBAR(self.energy[:, conf_idx], self.num_conf, self.cuda)
+                sub_F = sub_mbar._solve_mbar_equation(initial_F, verbose)
+                initial_F = sub_F
+                bootstrap_F.append(sub_F)
+                
+            bootstrap_F = np.array(bootstrap_F)
+            mean_F = bootstrap_F.mean(0)
+            std_F = bootstrap_F.std(0)
+        else:
+            mean_F = self._solve_mbar_equation(verbose = verbose)
+            std_F = None
+            
+        return (mean_F, std_F)
 
 def test():
     import numpy as np
