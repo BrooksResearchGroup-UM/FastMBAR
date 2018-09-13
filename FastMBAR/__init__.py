@@ -5,4 +5,3 @@ pymbar [3], FastMBAR is faster when calculating free energyies for a large
  num of states with a large num of conformations.
 """
 from FastMBAR.FastMBAR import FastMBAR
-from FastMBAR.FastMBAR import test
