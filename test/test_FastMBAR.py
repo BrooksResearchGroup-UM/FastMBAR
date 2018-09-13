@@ -1,4 +1,6 @@
 from FastMBAR import *
+import torch
+import numpy as np
 
 def test_FastMBAR():
     import numpy as np
