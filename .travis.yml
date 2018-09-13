@@ -1,9 +1,13 @@
 language: python
+
 python:
   - '3.5'
 
 install:
-  - pip3 install torch torchvision > /tmp/FastMBAR_build.log
-  - pip3 install numpy scipy > /tmp/FastMBAR_build.log
+  - pip3 install --quiet torch torchvision 
+  - pip3 install --quiet numpy scipy 
   - pip3 install ./ 
 
+script:
+  - pytest
+  
