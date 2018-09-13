@@ -3,7 +3,7 @@ python:
   - '3.5'
 
 install:
-  - pip3 install torch torchvision --log /tmp/FastMBAR_build.log
-  - pip3 install numpy scipy --log /tmp/FastMBAR_build.log
-  - pip3 install ./ --log /tmp/FastMBAR_build.log
+  - pip3 install torch torchvision > /tmp/FastMBAR_build.log
+  - pip3 install numpy scipy > /tmp/FastMBAR_build.log
+  - pip3 install ./ 
 
