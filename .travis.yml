@@ -3,7 +3,7 @@ python:
   - '3.5'
 
 install:
-  - pip3 install torch torchvision
+  - pip3 install torch torchvision --log /tmp/pip3_torch.log
   - pip3 install numpy scipy
   - pip3 install ./
 
