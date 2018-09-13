@@ -40,7 +40,7 @@ def test_FastMBAR():
 
     ## calcuate free energies using CPUs
     mbar = FastMBAR(energy, num_conf)
-    F_cpu = mbar.calculate_free_energies()    
+    F_cpu, _ = mbar.calculate_free_energies()
     diff_cpu = np.sqrt(np.mean((F_cpu-ref_result)**2))
     print("RMSD (CPU calculation and reference results): {:.2f}".format(diff_cpu))
     assert(diff_cpu <= 0.05)
@@ -48,7 +48,7 @@ def test_FastMBAR():
     ## calculate free energies using GPUs
     if torch.cuda.is_available():
         mbar = FastMBAR(energy, num_conf, cuda = True)
-        F_gpu = mbar.calculate_free_energies()    
+        F_gpu, _ = mbar.calculate_free_energies()    
         diff_gpu = np.sqrt(np.mean((F_gpu-ref_result)**2))        
         print("RMSD (GPU calculation and reference results): {:.2f}".format(diff_gpu))        
         assert(diff_gpu <= 0.05)
