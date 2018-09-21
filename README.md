@@ -19,3 +19,6 @@ They are routinely used in alchemical free energy calculations, umbrella samplin
       
   * using `pip`:  
     `pip install FastMBAR`
+## Usage
+ ![Figure](./energy_matrix.pdf)
+ 
