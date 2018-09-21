@@ -20,5 +20,12 @@ They are routinely used in alchemical free energy calculations, umbrella samplin
   * using `pip`:  
     `pip install FastMBAR`
 ## Usage
+The input to the MBAR/UWHAM equations are an energy (unitless) matrix and an integer array consisting of numbers of configurations sampled from states of interest. 
+Let's say that we are interested in calculating relative free energies of a system in _M_ thermodynamics states.
+The _j_ th state has an energy function of _U_<sub>_j_</sub>(_x_).
+From each of the first _m_ states, system configurations _x_ are sampled based on Boltzmann distributions.
+Let's assume that the number of configurations sampled from the _j_ th state is _n_<sub>_j_</sub>, _j_ = 1,2,...,_m_.
+To use these configurations to calculate the relative free energies of the _M_ states using MBAR, we need to prepared the following energy matrix **U** in the blue bracket:
  ![Figure](./energy_matrix.png)
- 
+Elements of the above matrix are energies of all the sampled configurations evaluated in all _M_ states.
+In addition, 
