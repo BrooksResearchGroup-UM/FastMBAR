@@ -25,7 +25,17 @@ Let's say that we are interested in calculating relative free energies of a syst
 The _j_ th state has an energy function of _U_<sub>_j_</sub>(_x_).
 From each of the first _m_ states, system configurations _x_ are sampled based on Boltzmann distributions.
 Let's assume that the number of configurations sampled from the _j_ th state is _n_<sub>_j_</sub>, _j_ = 1,2,...,_m_.
-To use these configurations to calculate the relative free energies of the _M_ states using MBAR, we need to prepared the following energy matrix **U** in the blue bracket:
+To use these configurations to calculate the relative free energies of the _M_ states using MBAR, we need to prepare the following energy matrix **U** in the blue bracket:
  ![Figure](./energy_matrix.png)
 Elements of the above matrix are energies of all the sampled configurations evaluated in all _M_ states.
-In addition, 
+In addition to the energy matrix **U**, we also need an integer array **v** consisting of the numbers of configurations sampled from _M_ states, i.e., **v** = (_n_<sub>_1_</sub>, _n_<sub>_2_</sub>, ..., _n_<sub>_m_</sub>, 0, 0, ..., 0).
+The last _M_-_m_ elements of the array **v** is zeros because no configurations are sample from those states.
+
+With the energy matrix **U** and the number of configuration array **v**, we can use the following Python command to calculate the relative free energies of the _M_ states:
+```Python
+# import the FastMBAR package
+import FastMBAR
+
+# construct a FastMBAR object with the energy matrix and the number of configuration array
+FastMBAR.FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if you want to run the calcuation on GPUs
+```
