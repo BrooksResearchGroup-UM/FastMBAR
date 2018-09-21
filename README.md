@@ -37,5 +37,11 @@ With the energy matrix **U** and the number of configuration array **v**, we can
 import FastMBAR
 
 # construct a FastMBAR object with the energy matrix and the number of configuration array
-FastMBAR.FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if you want to run the calcuation on GPUs
+mbar = FastMBAR.FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if you want to run the calcuation on GPUs
+
+# calcualte free energies by solving the MBAR equations
+F = mbar.calculate_free_energies(bootstrap=False)
+
+# if you want to estimate the uncertainty, change the above command into
+# F, F_std = mbar.calculate_free_energies(bootstrap=True)
 ```
