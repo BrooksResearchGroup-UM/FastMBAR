@@ -7,11 +7,11 @@ def test_FastMBAR():
 
     ## draw samples from multiple states, each of which is a harmonic
     ## osicillator
-    np.random.seed(0)
+    #np.random.seed(0)
     num_states_nz = 10 ## num of states with nonzero num of samples
     num_states_z = 2 ## num of states with zero samples
     num_states = num_states_nz + num_states_z
-    num_conf = np.array([400 for i in range(num_states_nz)] +
+    num_conf = np.array([5000 for i in range(num_states_nz)] +
                         [0 for i in range(num_states_z)])
     mu = np.random.normal(0, 4, size = num_states) ## equalibrium positions
     sigma = np.random.uniform(1, 3, size = num_states) ## sqrt of 1/k
@@ -35,11 +35,13 @@ def test_FastMBAR():
 
     energy = energy.astype(np.float64)
 
-    ## reference results
-    ref_result = np.array([ 0.0, -0.381, 0.548, 0.665,
-                            0.743, -0.388, -0.242, -0.377,
-                            -0.449, -0.286, 0.003, -0.209])
-
+    # ## reference results
+    # ref_result = np.array([ 0.0, -0.381, 0.548, 0.665,
+    #                         0.743, -0.388, -0.242, -0.377,
+    #                         -0.449, -0.286, 0.003, -0.209])
+    
+    ref_result = true_result
+    
     ## calcuate free energies using CPUs
     mbar = FastMBAR(energy, num_conf)
     F_cpu, _ = mbar.calculate_free_energies()
@@ -56,3 +58,5 @@ def test_FastMBAR():
         assert(diff_gpu <= 0.05)
     
         
+if __name__ == "__main__":
+    test_FastMBAR()
