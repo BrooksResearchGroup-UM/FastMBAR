@@ -13,7 +13,6 @@ class FastMBAR():
     of num of conformations. After initizlization, the FastMBAR class method
     calculate_free_energies is used to calculate the relative free energyies 
     for all states.
-
     """
     
     def __init__(self, energy, num_conf, cuda = False):
@@ -40,61 +39,79 @@ class FastMBAR():
             will be run on graphical processing units (GPUs) using CUDA.
         """
         self.cuda = cuda
+        if self.cuda:
+            self._solve_mbar_equation = self._solve_mbar_equation_cuda
+        else:
+            self._solve_mbar_equation = self._solve_mbar_equation_cpu
         
         self.energy = energy
-        self.num_conf = num_conf.astype(energy.dtype)
-        
+        self.num_conf = num_conf.astype(energy.dtype)        
         self.num_states = energy.shape[0]
         self.tot_num_conf = energy.shape[1]
         
-        # assert(np.sum(self.num_conf) == self.tot_num_conf)
-        # assert(self.num_states == len(self.num_conf))
-
         self.flag_zero = num_conf == 0
         self.flag_nz = num_conf != 0
-
-        self.energy_zero = torch.from_numpy(self.energy[self.flag_zero, :])
-        self.energy_nz = torch.from_numpy(self.energy[self.flag_nz, :])
-        self.num_conf_nz = torch.from_numpy(self.num_conf[self.flag_nz])
+        
+        self.energy_zero = self.energy[self.flag_zero, :]
+        self.num_states_zero = self.energy_zero.shape[0]
+        
+        self.energy_nz = self.energy[self.flag_nz, :]
+        self.num_conf_nz = self.num_conf[self.flag_nz]        
         self.num_states_nz = self.energy_nz.shape[0]
+        self.num_conf_nz_ratio = self.num_conf_nz / float(self.tot_num_conf)
 
-        if self.cuda:
-            self.energy_zero = self.energy_zero.cuda()
-            self.energy_nz = self.energy_nz.cuda()
-            self.num_conf_nz = self.num_conf_nz.cuda()
-        
-        self.bias_energy_nz = None
-
-        
-    def _loss_nz(self, bias_energy_nz):
-        assert(self.num_states_nz == len(bias_energy_nz))
-        bias_energy_nz = torch.tensor(bias_energy_nz,
-                                      requires_grad = True,
-                                      dtype = self.energy_nz.dtype)
-        if self.cuda:
-            self.bias_energy_nz = bias_energy_nz.cuda()
-        else:
-            self.bias_energy_nz = bias_energy_nz
+        ## moving data to GPU if cuda is used
+        if self.cuda:            
+            self.energy_zero = torch.from_numpy(self.energy_zero).cuda()
+            self.energy_nz = torch.from_numpy(self.energy_nz).cuda()
+            self.num_conf_nz = torch.from_numpy(self.num_conf_nz).cuda()
+            self.num_conf_nz_ratio = torch.from_numpy(self.num_conf_nz_ratio).cuda()
+            self.flag_zero = torch.ByteTensor(self.flag_zero.astype(np.int)).cuda()
+            self.flag_nz = torch.ByteTensor(self.flag_nz.astype(np.int)).cuda()
             
-        energy_nz = self.energy_nz - torch.min(self.energy_nz, 0)[0]    
-        tmp = torch.exp(-(energy_nz +
-                          self.bias_energy_nz.view([self.num_states_nz, 1])))        
-        tmp = torch.sum(tmp, 0)
-        loss = torch.sum(torch.log(tmp)) + torch.sum(self.num_conf_nz*self.bias_energy_nz)
-        loss = loss / self.energy_nz.shape[1]
+        self.bias_energy_nz = None
+        self.F = None
 
-        loss.backward()
-        return (loss.cpu().detach().numpy().astype(np.float64),
-                bias_energy_nz.cpu().grad.numpy().astype(np.float64))
-
-    
-    def _solve_mbar_equation(self, initial_F = None, verbose = False):
-        """ calculate the relative free energies for all states by
-        solving the MBAR equation once with the initial guess of initial_F
+        self.nit = None
+        
+    def _calculate_loss_and_grad_nz_cpu(self, bias_energy_nz):
+        """ calculate the loss and gradient for the FastMBAR objective function using CPUs.
 
         Parameters
         ----------
-        initial_F: 1-D float ndarray with size of (M,)
+        bias_energy_nz : 1-D ndarray with size of (M,)
+        
+        Returns:
+        -------
+        loss: the value of FastMBAR objective function
+        grad: a 1-D array with a size of (M,).    
+              the gradient of FastMBAR objective function with repsect to bias_energy_nz.
+        """
+        
+        assert(self.num_states_nz == len(bias_energy_nz))
+
+        biased_energy_nz = self.energy_nz + bias_energy_nz.reshape((-1,1))
+        biased_energy_nz_min = biased_energy_nz.min(0, keepdims = True)
+        biased_energy_nz_center = biased_energy_nz - biased_energy_nz_min
+        exp_biased_energy_nz = np.exp(-biased_energy_nz_center)
+        sum_exp_biased_energy_nz = np.sum(exp_biased_energy_nz, 0)
+        
+        loss = np.mean(np.log(sum_exp_biased_energy_nz)-biased_energy_nz_min.reshape(-1)) + \
+               np.sum(self.num_conf_nz_ratio * bias_energy_nz)
+                       
+        grad = - np.mean(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1) + \
+               self.num_conf_nz_ratio
+        
+        return loss, grad
+
+        
+    def _solve_mbar_equation_cpu(self, initial_bias_energy = None, verbose = False):
+        """ calculate the relative free energies on CPUs for all states by
+        solving the MBAR equation once with the initial guess of initial_bias_energy
+
+        Parameters
+        ----------
+        initial_bias_energy: 1-D float ndarray with size of (M,)
             starting point used to solve the MBAR equations
         verbose: bool, optional
             if verbose is true, the detailed information of running
@@ -104,63 +121,153 @@ class FastMBAR():
         F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
+        self.bias_energy_nz: 1-D float array with size of (M,)
+            the bias energy that minimizes the FastMBAR objective function
         """
 
-        if initial_F is None:
-            x0 = self.energy_nz.new(self.num_states_nz).zero_()
-            x0 = x0.cpu().numpy()
-        else:
-            assert(isinstance(initial_F, np.ndarray))
-            assert(initial_F.ndim == 1)
-            assert(len(initial_F) == self.num_states)
-            initial_F_nz = initial_F[self.flag_nz]
-            initial_F_nz = self.energy_nz.new(initial_F_nz)
-            sample_prop_nz = self.num_conf_nz / torch.sum(self.num_conf_nz)
-            x0 = - torch.log(sample_prop_nz) - initial_F_nz
-            x0 = x0.cpu().numpy()
-        
-        x, f, d = optimize.fmin_l_bfgs_b(self._loss_nz, x0, iprint = verbose)
-        self.bias_energy_nz = self.energy_nz.new(x)
-        if self.cuda:
-            self.bias_energy_nz = self.bias_energy_nz.cuda()
-        
-        ## get free energies for states with nonzero number of samples
-        sample_prop_nz = self.num_conf_nz / torch.sum(self.num_conf_nz)
-        self.F_nz = -torch.log(sample_prop_nz) - self.bias_energy_nz
+        if initial_bias_energy is None:
+            #initial_bias_energy = np.mean(self.energy_nz, 1)
+            initial_bias_energy = np.zeros(self.num_states_nz)
 
-        ## normalize free energies
-        prob_nz = torch.exp(-self.F_nz)
-        prob_nz = prob_nz / torch.sum(prob_nz)
-        self.F_nz = -torch.log(prob_nz)
-
-        ## update bias energies for states with nonzero number of samples
-        ## using normalized free energies
-        self.bias_energy_nz = -torch.log(sample_prop_nz) - self.F_nz
-
-        ## calculate free energies for states with zero number of samples
-        self.F = self.bias_energy_nz.new(self.num_states)
-        
-        if self.cuda:
-            self.F = self.F.cuda()
+        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu,
+        #                                  initial_bias_energy,
+        #                                  iprint = verbose)
             
-        idx_zero = 0        
-        idx_nz = 0
-        for i in range(self.num_states):
-            if self.flag_nz[i]:
-                self.F[i] = self.F_nz[idx_nz]
-                idx_nz += 1
-            else:
-                tmp = self.energy_nz + self.bias_energy_nz.view((-1,1)) - \
-                      self.energy_zero[idx_zero, :]
-                tmp = -torch.log(torch.mean(1.0/torch.sum(torch.exp(-tmp), 0)))
-                self.F[i] = tmp
-                idx_zero += 1
+        # options = {'factr':4503.599627370496, 'pgtol': 1e-12}
+        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu,
+        #                                  initial_bias_energy,
+        #                                  iprint = verbose,
+        #                                  **options)
+
+        options = {'disp': False}
+        self.x_records = []
+        def callback(xk):
+            self.x_records.append(xk)
+            
+        results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)
+        
+        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        
+        x = results['x']
+
+        self.nit = results['nit']
+        self.nfev = results['nfev']
+        
+        self.bias_energy_nz = x
+        #self.bias_energy_nz = self.bias_energy_nz - np.min(self.bias_energy_nz)
+        self.F_nz = - np.log(self.num_conf_nz_ratio) - self.bias_energy_nz
+
+        if self.num_states_zero != 0:
+            biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
+            biased_energy_nz_min = np.min(biased_energy_nz, 0, keepdims = True)
+        
+            tmp = np.log(np.sum(np.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1)
+            tmp = -self.energy_zero - tmp
+
+            F_zero = -(np.log(np.mean(np.exp(tmp-np.max(tmp,1,keepdims=True)), 1)) + np.max(tmp, 1))                
+            self.F = np.zeros(self.num_states)
+            self.F[self.flag_nz] = self.F_nz
+            self.F[self.flag_zero] = F_zero
+        else:
+            self.F = self.F_nz
+
+        return self.F, self.bias_energy_nz
+
+    
+    def _calculate_loss_and_grad_nz_cuda(self, bias_energy_nz):
+        """ calculate the loss and gradient for the FastMBAR objective function using GPUs.
+
+        Parameters
+        ----------
+        bias_energy_nz : 1-D ndarray with size of (M,)
+        
+        Returns:
+        -------
+        loss: the value of FastMBAR objective function
+        grad: a 1-D array with a size of (M,).    
+              the gradient of FastMBAR objective function with repsect to bias_energy_nz.
+        """
+        
+        bias_energy_nz = self.energy_nz.new_tensor(bias_energy_nz)
+        biased_energy_nz = self.energy_nz + bias_energy_nz.reshape((-1,1))
+        biased_energy_nz_min = biased_energy_nz.min(0, keepdim = True)[0]
+        biased_energy_nz = biased_energy_nz - biased_energy_nz_min
+        
+        exp_biased_energy_nz = torch.exp(-biased_energy_nz)
+        del biased_energy_nz
+        sum_exp_biased_energy_nz = torch.sum(exp_biased_energy_nz, 0)
+
+        loss = torch.mean(torch.log(sum_exp_biased_energy_nz) -
+                          biased_energy_nz_min.reshape(-1)) \
+               + torch.sum(self.num_conf_nz_ratio * bias_energy_nz)
+        
+        grad = - torch.mean(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1) + \
+               self.num_conf_nz_ratio
+
+        return (loss.cpu().numpy().astype(np.float64),
+                grad.cpu().numpy().astype(np.float64))
+    
+    def _solve_mbar_equation_cuda(self, initial_bias_energy = None, verbose = False):
+        """ calculate the relative free energies on GPUs for all states by
+        solving the MBAR equation once with the initial guess of initial_bias_energy
+
+        Parameters
+        ----------
+        initial_bias_energy: 1-D float ndarray with size of (M,)
+            starting point used to solve the MBAR equations
+        verbose: bool, optional
+            if verbose is true, the detailed information of running
+            LBFGS optimization is printed.
+        Returns
+        -------
+        F: 1-D float array with size of (M,)
+            the relative unitless free energies for all states
+
+        self.bias_energy_nz: 1-D float array with size of (M,)
+            the bias energy that minimizes the FastMBAR objective function
+        """
+        
+        if initial_bias_energy is None:
+            initial_bias_energy = np.zeros(self.num_states_nz)
+        
+        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cuda,
+        #                                  initial_bias_energy,
+        #                                  iprint = verbose)
+
+
+        options = {'disp': False}
+        self.x_records = []
+        # def callback(xk):
+        #     self.x_records.append(xk)            
+        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)
+        results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        
+        x = results['x']
+
+        self.nit = results['nit']
+        self.nfev = results['nfev']        
+        
+        self.bias_energy_nz = self.energy_nz.new_tensor(x)    
+        self.F_nz = - torch.log(self.num_conf_nz_ratio) - self.bias_energy_nz
+
+
+        if self.num_states_zero != 0:
+            biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
+            biased_energy_nz_min = torch.min(biased_energy_nz, 0, keepdim = True)[0]
+        
+            tmp = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1)
+            tmp = -self.energy_zero - tmp
+
+            F_zero = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
                 
-        self.F = self.F - self.F[0]
-        self.bias_energy_nz = -torch.log(sample_prop_nz) - self.F[torch.ByteTensor(self.flag_nz.astype(int))]
+            self.F = self.energy_nz.new_zeros(self.num_states)
+            self.F[self.flag_nz] = self.F_nz
+            self.F[self.flag_zero] = F_zero
+        else:
+            self.F = self.F_nz
 
-        return self.F.cpu().numpy()
-
+        return self.F.cpu().numpy(), x
+        
     def calculate_free_energies(self, bootstrap = False, block_size = 3, num_rep = 100,
                                 verbose = False):
         
@@ -188,6 +295,7 @@ class FastMBAR():
                  Otherwise, it is None
               the uncertainty of F calculated using block bootstrapping 
         """
+            
         if bootstrap:
             num_conf_nz = self.num_conf[self.flag_nz]
             num_conf_nz = num_conf_nz.astype(np.int)
@@ -230,7 +338,6 @@ class FastMBAR():
             mean_F = bootstrap_F.mean(0)
             std_F = bootstrap_F.std(0)
         else:
-            mean_F = self._solve_mbar_equation(verbose = verbose)
+            mean_F, _ = self._solve_mbar_equation(verbose = verbose)
             std_F = None
-            
         return (mean_F, std_F)
