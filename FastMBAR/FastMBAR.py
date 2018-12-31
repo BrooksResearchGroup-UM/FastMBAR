@@ -340,4 +340,5 @@ class FastMBAR():
         else:
             mean_F, _ = self._solve_mbar_equation(verbose = verbose)
             std_F = None
+        mean_F = mean_F - mean_F[0]
         return (mean_F, std_F)
