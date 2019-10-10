@@ -68,8 +68,12 @@ class FastMBAR():
             self.num_conf_nz_ratio = torch.from_numpy(self.num_conf_nz_ratio).cuda()
             self.flag_zero = torch.ByteTensor(self.flag_zero.astype(np.int)).cuda()
             self.flag_nz = torch.ByteTensor(self.flag_nz.astype(np.int)).cuda()
-            
+
+        ## biasing energy added to states with nonzero conformations
+        ## they are the variables that need to be optimized
         self.bias_energy_nz = None
+
+        ## result of free energies
         self.F = None
 
         self.nit = None
@@ -139,14 +143,17 @@ class FastMBAR():
         #                                  iprint = verbose,
         #                                  **options)
 
-        options = {'disp': False}
+        options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
         def callback(xk):
             self.x_records.append(xk)
             
-        results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)
+        print("here")            
+        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)        
+        # results = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, iprint = 1)
+
         
-        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
         
         x = results['x']
 
@@ -235,7 +242,7 @@ class FastMBAR():
         #                                  iprint = verbose)
 
 
-        options = {'disp': False}
+        options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
         # def callback(xk):
         #     self.x_records.append(xk)            
@@ -255,7 +262,7 @@ class FastMBAR():
             biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
             biased_energy_nz_min = torch.min(biased_energy_nz, 0, keepdim = True)[0]
         
-            tmp = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1)
+            tmp = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1) 
             tmp = -self.energy_zero - tmp
 
             F_zero = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
