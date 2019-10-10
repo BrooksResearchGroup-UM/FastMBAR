@@ -15,7 +15,7 @@ class FastMBAR():
     for all states.
     """
     
-    def __init__(self, energy, num_conf, cuda = False):
+    def __init__(self, energy, num_conf, cuda = False, cuda_batch_mode = None):
         """Initizlizer for class FastMBAR
 
         Parameters
@@ -39,10 +39,6 @@ class FastMBAR():
             will be run on graphical processing units (GPUs) using CUDA.
         """
         self.cuda = cuda
-        if self.cuda:
-            self._solve_mbar_equation = self._solve_mbar_equation_cuda
-        else:
-            self._solve_mbar_equation = self._solve_mbar_equation_cpu
         
         self.energy = energy
         self.num_conf = num_conf.astype(energy.dtype)        
@@ -59,16 +55,50 @@ class FastMBAR():
         self.num_conf_nz = self.num_conf[self.flag_nz]        
         self.num_states_nz = self.energy_nz.shape[0]
         self.num_conf_nz_ratio = self.num_conf_nz / float(self.tot_num_conf)
-
+                
         ## moving data to GPU if cuda is used
-        if self.cuda:            
-            self.energy_zero = torch.from_numpy(self.energy_zero).cuda()
-            self.energy_nz = torch.from_numpy(self.energy_nz).cuda()
+        if self.cuda:
             self.num_conf_nz = torch.from_numpy(self.num_conf_nz).cuda()
             self.num_conf_nz_ratio = torch.from_numpy(self.num_conf_nz_ratio).cuda()
-            self.flag_zero = torch.ByteTensor(self.flag_zero.astype(np.int)).cuda()
-            self.flag_nz = torch.ByteTensor(self.flag_nz.astype(np.int)).cuda()
+            self.flag_zero = torch.BoolTensor(self.flag_zero.astype(np.int)).cuda()
+            self.flag_nz = torch.BoolTensor(self.flag_nz.astype(np.int)).cuda()
 
+            ## check if the GPU device has enough memory. If not, cuda_batch_mode is
+            ## turned on
+            self.total_GPU_memory = torch.cuda.get_device_properties(0).total_memory
+            if self.energy.size * self.energy.itemsize < self.total_GPU_memory / 10:
+                self.cuda_batch_mode = False
+            else:
+                self.cuda_batch_mode = True
+
+            if cuda_batch_mode is not None:
+                self.cuda_batch_mode = cuda_batch_mode
+                
+        if self.cuda and not self.cuda_batch_mode:
+            self.energy_zero = torch.from_numpy(self.energy_zero).cuda()
+            self.energy_nz = torch.from_numpy(self.energy_nz).cuda()            
+
+        if self.cuda and not self.cuda_batch_mode:
+            self._solve_mbar_equation = self._solve_mbar_equation_cuda
+            print("solve MBAR equation using CUDA and the batch mode is off")
+        elif self.cuda and self.cuda_batch_mode:
+            self._solve_mbar_equation = self._solve_mbar_equation_cuda_batch
+            print("solve MBAR equation using CUDA and the batch mode is on")
+        else:
+            self._solve_mbar_equation = self._solve_mbar_equation_cpu
+            print("solve MBAR equation using CPU")            
+
+
+        if self.cuda and self.cuda_batch_mode:
+            self.conf_batch_size = int(self.total_GPU_memory/20/self.energy_nz.shape[0]/self.energy_nz.itemsize)
+            self.conf_batch_size = min(2048, self.conf_batch_size)
+            self.conf_num_batches = torch.sum(self.num_conf_nz) / self.conf_batch_size
+            self.conf_num_batches = int(self.conf_num_batches.item()) + 1
+            
+            self.state_batch_size = int(self.total_GPU_memory/20/self.energy_zero.shape[1]/self.energy_zero.itemsize)
+            self.state_batch_size = min(2048, self.state_batch_size)
+            self.state_num_batches = self.num_states_zero // self.state_batch_size + 1
+            
         ## biasing energy added to states with nonzero conformations
         ## they are the variables that need to be optimized
         self.bias_energy_nz = None
@@ -148,7 +178,6 @@ class FastMBAR():
         def callback(xk):
             self.x_records.append(xk)
             
-        print("here")            
         # results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)        
         # results = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, iprint = 1)
 
@@ -213,6 +242,44 @@ class FastMBAR():
 
         return (loss.cpu().numpy().astype(np.float64),
                 grad.cpu().numpy().astype(np.float64))
+
+    def _calculate_loss_and_grad_nz_cuda_batch(self, bias_energy_nz):
+        """ calculate the loss and gradient for the FastMBAR objective function using GPUs.
+
+        Parameters
+        ----------
+        bias_energy_nz : 1-D ndarray with size of (M,)
+        
+        Returns:
+        -------
+        loss: the value of FastMBAR objective function
+        grad: a 1-D array with a size of (M,).    
+              the gradient of FastMBAR objective function with repsect to bias_energy_nz.
+        """
+        
+        bias_energy_nz = torch.from_numpy(bias_energy_nz).cuda()        
+        
+        loss = 0.0
+        grad = 0.0
+        
+        for idx_batch in range(self.conf_num_batches):
+            self.energy_nz_cuda = torch.from_numpy(self.energy_nz[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
+            biased_energy_nz = self.energy_nz_cuda + bias_energy_nz.reshape((-1,1))
+            biased_energy_nz_min = biased_energy_nz.min(0, keepdim = True)[0]
+            biased_energy_nz = biased_energy_nz - biased_energy_nz_min
+            exp_biased_energy_nz = torch.exp(-biased_energy_nz)            
+            del biased_energy_nz
+            sum_exp_biased_energy_nz = torch.sum(exp_biased_energy_nz, 0)
+
+            loss = loss + torch.sum(torch.log(sum_exp_biased_energy_nz) -
+                              biased_energy_nz_min.reshape(-1))            
+            grad = grad - torch.sum(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1)
+            
+        loss = loss/self.tot_num_conf + torch.sum(self.num_conf_nz_ratio * bias_energy_nz)
+        grad = grad/self.tot_num_conf + self.num_conf_nz_ratio            
+
+        return (loss.cpu().numpy().astype(np.float64),
+                grad.cpu().numpy().astype(np.float64))
     
     def _solve_mbar_equation_cuda(self, initial_bias_energy = None, verbose = False):
         """ calculate the relative free energies on GPUs for all states by
@@ -235,13 +302,10 @@ class FastMBAR():
         """
         
         if initial_bias_energy is None:
-            initial_bias_energy = np.zeros(self.num_states_nz)
-        
+            initial_bias_energy = np.zeros(self.num_states_nz)        
         # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cuda,
         #                                  initial_bias_energy,
         #                                  iprint = verbose)
-
-
         options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
         # def callback(xk):
@@ -250,13 +314,11 @@ class FastMBAR():
         results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
         
         x = results['x']
-
         self.nit = results['nit']
         self.nfev = results['nfev']        
         
         self.bias_energy_nz = self.energy_nz.new_tensor(x)    
         self.F_nz = - torch.log(self.num_conf_nz_ratio) - self.bias_energy_nz
-
 
         if self.num_states_zero != 0:
             biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
@@ -274,7 +336,76 @@ class FastMBAR():
             self.F = self.F_nz
 
         return self.F.cpu().numpy(), x
+
+    def _solve_mbar_equation_cuda_batch(self, initial_bias_energy = None, verbose = False):
+        """ calculate the relative free energies on GPUs for all states by
+        solving the MBAR equation once with the initial guess of initial_bias_energy
+
+        Parameters
+        ----------
+        initial_bias_energy: 1-D float ndarray with size of (M,)
+            starting point used to solve the MBAR equations
+        verbose: bool, optional
+            if verbose is true, the detailed information of running
+            LBFGS optimization is printed.
+        Returns
+        -------
+        F: 1-D float array with size of (M,)
+            the relative unitless free energies for all states
+
+        self.bias_energy_nz: 1-D float array with size of (M,)
+            the bias energy that minimizes the FastMBAR objective function
+        """
         
+        if initial_bias_energy is None:
+            initial_bias_energy = np.zeros(self.num_states_nz)        
+        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cuda,
+        #                                  initial_bias_energy,
+        #                                  iprint = verbose)
+        options = {'disp': verbose, 'gtol': 1e-8}
+        self.x_records = []
+        # def callback(xk):
+        #     self.x_records.append(xk)            
+        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)
+        results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda_batch, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        
+        x = results['x']
+        self.nit = results['nit']
+        self.nfev = results['nfev']        
+        
+        #self.bias_energy_nz = self.energy_nz.new_tensor(x)
+        self.bias_energy_nz = torch.from_numpy(x).cuda()
+        self.F_nz = - torch.log(self.num_conf_nz_ratio) - self.bias_energy_nz
+
+        if self.num_states_zero != 0:                    
+            mix_logprob = []
+            for idx_batch  in range(self.conf_num_batches):
+                self.energy_nz_cuda_batch = torch.from_numpy(self.energy_nz[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
+                biased_energy_nz = self.energy_nz_cuda_batch + self.bias_energy_nz.reshape((-1,1))
+                biased_energy_nz_min = torch.min(biased_energy_nz, 0, keepdim = True)[0]
+                mix_logprob_batch = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1) 
+                mix_logprob.append(mix_logprob_batch)
+            mix_logprob = torch.cat(mix_logprob)
+
+            num_batches = self.num_states_zero // self.state_batch_size + 1
+            
+            F_zero = []
+            for idx_batch in range(self.state_num_batches):
+                energy_zero = torch.from_numpy(self.energy_zero[idx_batch*self.state_batch_size:(idx_batch + 1)*self.state_batch_size, :]).cuda()
+                tmp = -energy_zero - mix_logprob
+                F_zero_batch = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
+                F_zero.append(F_zero_batch)
+            F_zero = torch.cat(F_zero)
+
+            self.F = F_zero.new_zeros(self.num_states)
+            self.F[self.flag_nz] = self.F_nz
+            self.F[self.flag_zero] = F_zero
+
+        else:
+            self.F = self.F_nz
+            
+        return self.F.cpu().numpy(), x
+    
     def calculate_free_energies(self, bootstrap = False, block_size = 3, num_rep = 100,
                                 verbose = False):
         
