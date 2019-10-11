@@ -1,6 +1,6 @@
 package:
   name: fastmbar
-  version: "0.0.3"
+  version: "0.0.4"
 
 source:
   path: ../
@@ -11,13 +11,13 @@ requirements:
     - setuptools
     - numpy >=1.14.0
     - scipy >=1.1.0
-    - pytorch >=0.4.0
+    - pytorch >=1.0.0
     
   run:
     - python
     - numpy >=1.14.0
     - scipy >=1.1.0
-    - pytorch >=0.4.0
+    - pytorch >=1.0.0
 
 about:
   home: https://github.com/xqding/FastMBAR

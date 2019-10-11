@@ -8,7 +8,8 @@ twine upload dist/*
 
 ## Anaconda Cloud
 ```
-conda-build conda -c pytorch
-anaconda upload path_to_fastmbar-0.0.2-py35h95ea65b_0.tar.bz2
-conda convert --platform linux-64 path_to_fastmbar-0.0.2-py35h95ea65b_0.tar.bz2 -o 
+cd conda
+conda build .
+anaconda upload /home/xqding/apps/miniconda3/conda-bld/linux-64/fastmbar-0.0.4-py37_0.tar.bz2
+conda convert --platform all /home/xqding/apps/miniconda3/conda-bld/linux-64/fastmbar-0.0.4-py37_0.tar.bz2 -o conda_build/
 ```

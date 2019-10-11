@@ -5,7 +5,7 @@ with open("README.md", 'r') as file_handle:
 
 setup(
     name = "FastMBAR",
-    version = "0.0.3",
+    version = "0.0.4",
     author = "Xinqiang (Shawn) Ding",
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
@@ -15,7 +15,7 @@ setup(
     packages = find_packages(),
     install_requires=['numpy>=1.14.0',
                       'scipy>=1.1.0',
-                      'torch>=0.4.0'],
+                      'torch>=1.0.0'],
     license = 'MIT',
     classifiers = (
         "Programming Language :: Python :: 3",
