@@ -10,7 +10,7 @@ def test_FastMBAR():
 
     ## draw samples from multiple states, each of which is a harmonic
     ## osicillator
-    np.random.seed(0)
+    #np.random.seed(0)
     num_states_nz = 20 ## num of states with nonzero num of samples
     num_states_z = 5 ## num of states with zero samples
     num_states = num_states_nz + num_states_z
@@ -47,7 +47,7 @@ def test_FastMBAR():
 
     ## calcuate free energies using CPUs
     mbar = FastMBAR(energy, num_conf)
-    F_cpu, _ = mbar.calculate_free_energies()
+    F_cpu, _ = mbar.calculate_free_energies(bootstrap = True)
     diff_cpu = np.sqrt(np.mean((F_cpu-ref_result)**2))
     print("RMSD (CPU calculation and reference results): {:.2f}".format(diff_cpu))
     assert(diff_cpu <= 0.05)
