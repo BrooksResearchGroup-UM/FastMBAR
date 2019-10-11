@@ -13,7 +13,11 @@ class FastMBAR():
     calculate_free_energies is used to calculate the relative free energyies 
     for all states.
     """    
-    def __init__(self, energy, num_conf, cuda = False, cuda_batch_mode = None):
+    def __init__(self, energy, num_conf,
+                 cuda = False, cuda_batch_mode = None,
+                 bootstrap = False, bootstrap_block_size = 3,
+                 bootstrap_num_rep = 10,
+                 verbose = False):
         """Initizlizer for class FastMBAR
 
         Parameters
@@ -36,30 +40,26 @@ class FastMBAR():
             If it is set to be True, then the calculation in FastMBAR.calculate_free_energies 
             will be run on graphical processing units (GPUs) using CUDA.
         """
+        ## setting for bootstrap
+        self.bootstrap = bootstrap
+        self.bootstrap_block_size = bootstrap_block_size
+        self.bootstrap_num_rep = bootstrap_num_rep
+        self.verbose = verbose
+
+        ## set if GPU will be used
         self.cuda = cuda
         
+        assert(np.all(num_conf > 0))
         self.energy = energy.astype(np.float64)
-        self.num_conf = num_conf.astype(energy.dtype)        
+        self.num_conf = num_conf.astype(energy.dtype)
         self.num_states = energy.shape[0]
         self.tot_num_conf = energy.shape[1]
-        
-        self.flag_zero = num_conf == 0
-        self.flag_nz = num_conf != 0
-        
-        self.energy_zero = self.energy[self.flag_zero, :]
-        self.num_states_zero = self.energy_zero.shape[0]
-        
-        self.energy_nz = self.energy[self.flag_nz, :]
-        self.num_states_nz = self.energy_nz.shape[0]        
-        self.num_conf_nz = self.num_conf[self.flag_nz]        
-        self.num_conf_nz_ratio = self.num_conf_nz / float(self.tot_num_conf)
-                
+        self.num_conf_ratio = self.num_conf / float(self.tot_num_conf)
+                        
         ## moving data to GPU if cuda is used
         if self.cuda:
-            self.num_conf_nz = torch.from_numpy(self.num_conf_nz).cuda()
-            self.num_conf_nz_ratio = torch.from_numpy(self.num_conf_nz_ratio).cuda()
-            self.flag_zero = torch.BoolTensor(self.flag_zero.astype(np.int)).cuda()
-            self.flag_nz = torch.BoolTensor(self.flag_nz.astype(np.int)).cuda()
+            self.num_conf_cuda = torch.from_numpy(self.num_conf).cuda()
+            self.num_conf_ratio_cuda = torch.from_numpy(self.num_conf_ratio).cuda()
 
             ## check if the GPU device has enough memory. If not, cuda_batch_mode is
             ## turned on
@@ -76,49 +76,57 @@ class FastMBAR():
 
         ## when cuda_batch_mode is not used, we can copy all the energy data to GPU
         if self.cuda and not self.cuda_batch_mode:
-            self.energy_zero = torch.from_numpy(self.energy_zero).cuda()
-            self.energy_nz = torch.from_numpy(self.energy_nz).cuda()            
+            self.energy_cuda = torch.from_numpy(self.energy).cuda()
 
         ## when cuda_batch_mode is used, we need to decide on the batch_size based on
         ## both the memory of the GPU device and the size of energy matrix
         if self.cuda and self.cuda_batch_mode:
 
             ## batch size for seperating conformations
-            self.conf_batch_size = int(self.total_GPU_memory/20/self.energy_nz.shape[0]/self.energy_nz.itemsize)
+            self.conf_batch_size = int(self.total_GPU_memory/20/self.energy.shape[0]/self.energy.itemsize)
             self.conf_batch_size = min(2048, self.conf_batch_size)
-            self.conf_num_batches = torch.sum(self.num_conf_nz) / self.conf_batch_size
+            self.conf_num_batches = torch.sum(self.num_conf_cuda) / self.conf_batch_size
             self.conf_num_batches = int(self.conf_num_batches.item()) + 1
 
-            ## batch size for seperating states
-            self.state_batch_size = int(self.total_GPU_memory/20/self.energy_zero.shape[1]/self.energy_zero.itemsize)
-            self.state_batch_size = min(64, self.state_batch_size)
-            self.state_num_batches = self.num_states_zero // self.state_batch_size + 1
+            # ## batch size for seperating states
+            # self.state_batch_size = int(self.total_GPU_memory/20/self.energy_zero.shape[1]/self.energy_zero.itemsize)
+            # self.state_batch_size = min(64, self.state_batch_size)
+            # self.state_num_batches = self.num_states_zero // self.state_batch_size + 1
 
         ## set self._solve_mbar_equation to specific function based on settings
         if self.cuda and not self.cuda_batch_mode:
             print("solve MBAR equation using CUDA and the batch mode is off")            
             self._solve_mbar_equation = self._solve_mbar_equation_cuda
+            self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cuda
         elif self.cuda and self.cuda_batch_mode:
             print("solve MBAR equation using CUDA and the batch mode is on")            
             self._solve_mbar_equation = self._solve_mbar_equation_cuda_batch
+            self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cuda_batch            
         else:
             print("solve MBAR equation using CPU")                        
             self._solve_mbar_equation = self._solve_mbar_equation_cpu
-                        
-        ## biasing energy added to states with nonzero conformations
-        ## they are the variables that need to be optimized
-        self.bias_energy_nz = None
+            self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cpu            
 
-        ## result of free energies
-        self.F = None
+        if not self.bootstrap:
+            ## biasing energy added to states with nonzero conformations
+            ## they are the variables that need to be optimized
+            self.bias_energy = None
 
-        ## log of the mixed distribution probablity of each conformation
-        self.log_prob_mix = None
+            ## result of free energies
+            self.F = None
+
+            ## log of the mixed distribution probablity of each conformation
+            self.log_prob_mix = None
+
+        else:
+            self.bias_energy_bootstrap = []
+            self.F_bootstrap = []
+            self.log_prob_mix_bootstrap = []
+            self.conf_idx_bootstrap = []
+            
+        self.nit = None        
         
-        self.nit = None
-        
-        
-    def _calculate_loss_and_grad_nz_cpu(self, bias_energy_nz):
+    def _calculate_loss_and_grad_cpu(self, bias_energy):
         """ calculate the loss and gradient for the FastMBAR objective function using CPUs.
 
         Parameters
@@ -132,22 +140,21 @@ class FastMBAR():
               the gradient of FastMBAR objective function with repsect to bias_energy_nz.
         """
         
-        assert(self.num_states_nz == len(bias_energy_nz))
-
-        biased_energy_nz = self.energy_nz + bias_energy_nz.reshape((-1,1))
-        biased_energy_nz_min = biased_energy_nz.min(0, keepdims = True)
-        biased_energy_nz_center = biased_energy_nz - biased_energy_nz_min
-        exp_biased_energy_nz = np.exp(-biased_energy_nz_center)
-        sum_exp_biased_energy_nz = np.sum(exp_biased_energy_nz, 0)
+        assert(self.num_states == len(bias_energy))
         
-        loss = np.mean(np.log(sum_exp_biased_energy_nz)-biased_energy_nz_min.reshape(-1)) + \
-               np.sum(self.num_conf_nz_ratio * bias_energy_nz)
+        biased_energy = self.energy + bias_energy.reshape((-1,1))
+        biased_energy_min = biased_energy.min(0, keepdims = True)
+        biased_energy_center = biased_energy - biased_energy_min
+        exp_biased_energy = np.exp(-biased_energy_center)
+        sum_exp_biased_energy = np.sum(exp_biased_energy, 0)
+        
+        loss = np.mean(np.log(sum_exp_biased_energy)-biased_energy_min.reshape(-1)) + \
+               np.sum(self.num_conf_ratio * bias_energy)
                        
-        grad = - np.mean(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1) + \
-               self.num_conf_nz_ratio
+        grad = - np.mean(exp_biased_energy / sum_exp_biased_energy, 1) + \
+               self.num_conf_ratio
         
         return loss, grad
-
         
     def _solve_mbar_equation_cpu(self, initial_bias_energy = None, verbose = False):
         """ calculate the relative free energies on CPUs for all states by
@@ -170,53 +177,43 @@ class FastMBAR():
         """
 
         if initial_bias_energy is None:
-            #initial_bias_energy = np.mean(self.energy_nz, 1)
-            initial_bias_energy = np.zeros(self.num_states_nz)
-
-        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu,
-        #                                  initial_bias_energy,
-        #                                  iprint = verbose)
-            
-        # options = {'factr':4503.599627370496, 'pgtol': 1e-12}
-        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu,
-        #                                  initial_bias_energy,
-        #                                  iprint = verbose,
-        #                                  **options)
-
-        options = {'disp': verbose, 'gtol': 1e-8}
-        # self.x_records = []
-        # def callback(xk):
-        #     self.x_records.append(xk)            
-        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)        
-        # results = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, iprint = 1)
-        
-        results = optimize.minimize(self._calculate_loss_and_grad_nz_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+            initial_bias_energy = np.zeros(self.num_states)
+        options = {'disp': verbose, 'gtol': 1e-8}        
+        results = optimize.minimize(self._calculate_loss_and_grad_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
         
         x = results['x']
         self.nit = results['nit']
         self.nfev = results['nfev']
         
-        self.bias_energy_nz = x
-        self.F_nz = - np.log(self.num_conf_nz_ratio) - self.bias_energy_nz
-
-        ## calculate self.log_prob_mix for each conformation
-        biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
-        biased_energy_nz_min = np.min(biased_energy_nz, 0, keepdims = True)        
-        self.log_prob_mix = np.log(np.sum(np.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1)
+        bias_energy = x
+        F = - np.log(self.num_conf_ratio) - bias_energy
+        bias_energy = bias_energy + F[0]
+        F = F - F[0]
         
-        if self.num_states_zero != 0:            
-            tmp = -self.energy_zero - self.log_prob_mix
-            F_zero = -(np.log(np.mean(np.exp(tmp-np.max(tmp,1,keepdims=True)), 1)) + np.max(tmp, 1))                
-            self.F = np.zeros(self.num_states)
-            self.F[self.flag_nz] = self.F_nz
-            self.F[self.flag_zero] = F_zero
-        else:
-            self.F = self.F_nz
-            
-        return self.F, self.bias_energy_nz
-
+        ## calculate self.log_prob_mix for each conformation
+        biased_energy = self.energy + bias_energy.reshape((-1,1))
+        biased_energy_min = np.min(biased_energy, 0, keepdims = True)        
+        log_prob_mix = np.log(np.sum(np.exp(-(biased_energy - biased_energy_min)), 0)) - biased_energy_min.reshape(-1)
+        
+        return F, bias_energy, log_prob_mix
     
-    def _calculate_loss_and_grad_nz_cuda(self, bias_energy_nz):
+    def _calculate_free_energies_of_perturbed_states_cpu(self, energy_perturbed):
+        F_mean = None
+        F_std = None
+        if self.bootstrap:
+            F_list =  []
+            for k in range(self.bootstrap_num_rep):
+                tmp = -energy_perturbed[:,self.conf_idx_bootstrap[k]] - self.log_prob_mix_bootstrap[k]
+                F = -(np.log(np.mean(np.exp(tmp-np.max(tmp,1,keepdims=True)), 1)) + np.max(tmp, 1))
+                F_list.append(F)
+            F_mean = np.mean(F_list, 0)
+            F_std = np.std(F_list, 0)
+        else:
+            tmp = -energy_perturbed - self.log_prob_mix
+            F_mean = -(np.log(np.mean(np.exp(tmp-np.max(tmp,1,keepdims=True)), 1)) + np.max(tmp, 1))
+        return F_mean, F_std
+    
+    def _calculate_loss_and_grad_cuda(self, bias_energy):
         """ calculate the loss and gradient for the FastMBAR objective function using GPUs.
 
         Parameters
@@ -229,61 +226,23 @@ class FastMBAR():
         grad: a 1-D array with a size of (M,).    
               the gradient of FastMBAR objective function with repsect to bias_energy_nz.
         """
+        assert(self.num_states == len(bias_energy))
         
-        bias_energy_nz = self.energy_nz.new_tensor(bias_energy_nz)
-        biased_energy_nz = self.energy_nz + bias_energy_nz.reshape((-1,1))
-        biased_energy_nz_min = biased_energy_nz.min(0, keepdim = True)[0]
-        biased_energy_nz = biased_energy_nz - biased_energy_nz_min
+        bias_energy = self.energy_cuda.new_tensor(bias_energy)
+        biased_energy = self.energy_cuda + bias_energy.reshape((-1,1))
+        biased_energy_min = biased_energy.min(0, keepdim = True)[0]
+        biased_energy = biased_energy - biased_energy_min
         
-        exp_biased_energy_nz = torch.exp(-biased_energy_nz)
-        del biased_energy_nz
-        sum_exp_biased_energy_nz = torch.sum(exp_biased_energy_nz, 0)
+        exp_biased_energy = torch.exp(-biased_energy)
+        del biased_energy
+        sum_exp_biased_energy = torch.sum(exp_biased_energy, 0)
 
-        loss = torch.mean(torch.log(sum_exp_biased_energy_nz) -
-                          biased_energy_nz_min.reshape(-1)) \
-               + torch.sum(self.num_conf_nz_ratio * bias_energy_nz)
+        loss = torch.mean(torch.log(sum_exp_biased_energy) -
+                          biased_energy_min.reshape(-1)) \
+               + torch.sum(self.num_conf_ratio_cuda * bias_energy)
         
-        grad = - torch.mean(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1) + \
-               self.num_conf_nz_ratio
-
-        return (loss.cpu().numpy().astype(np.float64),
-                grad.cpu().numpy().astype(np.float64))
-
-    def _calculate_loss_and_grad_nz_cuda_batch(self, bias_energy_nz):
-        """ calculate the loss and gradient for the FastMBAR objective function using GPUs in batch mode.
-
-        Parameters
-        ----------
-        bias_energy_nz : 1-D ndarray with size of (M,)
-        
-        Returns:
-        -------
-        loss: the value of FastMBAR objective function
-        grad: a 1-D array with a size of (M,).    
-              the gradient of FastMBAR objective function with repsect to bias_energy_nz.
-        """
-        
-        bias_energy_nz = torch.from_numpy(bias_energy_nz).cuda()        
-        
-        loss = 0.0
-        grad = 0.0
-
-        ## loop through batches of conformations and accumulate the loss and grad
-        for idx_batch in range(self.conf_num_batches):
-            self.energy_nz_cuda = torch.from_numpy(self.energy_nz[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
-            biased_energy_nz = self.energy_nz_cuda + bias_energy_nz.reshape((-1,1))
-            biased_energy_nz_min = biased_energy_nz.min(0, keepdim = True)[0]
-            biased_energy_nz = biased_energy_nz - biased_energy_nz_min
-            exp_biased_energy_nz = torch.exp(-biased_energy_nz)            
-            del biased_energy_nz
-            sum_exp_biased_energy_nz = torch.sum(exp_biased_energy_nz, 0)
-
-            loss = loss + torch.sum(torch.log(sum_exp_biased_energy_nz) -
-                              biased_energy_nz_min.reshape(-1))            
-            grad = grad - torch.sum(exp_biased_energy_nz / sum_exp_biased_energy_nz, 1)
-            
-        loss = loss/self.tot_num_conf + torch.sum(self.num_conf_nz_ratio * bias_energy_nz)
-        grad = grad/self.tot_num_conf + self.num_conf_nz_ratio            
+        grad = - torch.mean(exp_biased_energy / sum_exp_biased_energy, 1) + \
+               self.num_conf_ratio_cuda
 
         return (loss.cpu().numpy().astype(np.float64),
                 grad.cpu().numpy().astype(np.float64))
@@ -309,41 +268,85 @@ class FastMBAR():
         """
         
         if initial_bias_energy is None:
-            initial_bias_energy = np.zeros(self.num_states_nz)        
-        # x, f, d = optimize.fmin_l_bfgs_b(self._calculate_loss_and_grad_nz_cuda,
-        #                                  initial_bias_energy,
-        #                                  iprint = verbose)
+            initial_bias_energy = np.zeros(self.num_states)
         options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
-        # def callback(xk):
-        #     self.x_records.append(xk)            
-        # results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options, callback = callback)
-        results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        results = optimize.minimize(self._calculate_loss_and_grad_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
         
         x = results['x']
         self.nit = results['nit']
-        self.nfev = results['nfev']        
-        
-        self.bias_energy_nz = self.energy_nz.new_tensor(x)    
-        self.F_nz = - torch.log(self.num_conf_nz_ratio) - self.bias_energy_nz
+        self.nfev = results['nfev']
 
-        ## calculate self.log_prob_mix
-        biased_energy_nz = self.energy_nz + self.bias_energy_nz.reshape((-1,1))
-        biased_energy_nz_min = torch.min(biased_energy_nz, 0, keepdim = True)[0]        
-        self.log_prob_mix = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1)         
-        
-        if self.num_states_zero != 0:
-            tmp = -self.energy_zero - self.log_prob_mix
+        bias_energy = self.energy_cuda.new_tensor(x)
+        F = - torch.log(self.num_conf_ratio_cuda) - bias_energy
+        bias_energy = bias_energy + F[0]
+        F = F - F[0]
 
-            F_zero = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
-                
-            self.F = self.energy_nz.new_zeros(self.num_states)
-            self.F[self.flag_nz] = self.F_nz
-            self.F[self.flag_zero] = F_zero
+        biased_energy = self.energy_cuda + bias_energy.reshape((-1,1))
+        biased_energy_min = torch.min(biased_energy, 0, keepdim = True)[0]
+        log_prob_mix = torch.log(torch.sum(torch.exp(-(biased_energy - biased_energy_min)), 0)) - biased_energy_min.reshape(-1)
+        
+        return F.cpu().numpy(), bias_energy.cpu().numpy(), log_prob_mix.cpu().numpy()
+
+    def _calculate_free_energies_of_perturbed_states_cuda(self, energy_perturbed):
+        F_mean = None
+        F_std = None
+        energy_perturbed = self.energy_cuda.new_tensor(energy_perturbed)
+        if self.bootstrap:
+            F_list =  []
+            for k in range(self.bootstrap_num_rep):
+                log_prob_mix = self.energy_cuda.new_tensor(self.log_prob_mix_bootstrap[k])
+                tmp = -energy_perturbed[:,self.conf_idx_bootstrap[k]] - log_prob_mix
+                F = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
+                F_list.append(F)                
+            F_mean = torch.mean(torch.stack(F_list), 0)
+            F_std = torch.std(torch.stack(F_list), 0)
         else:
-            self.F = self.F_nz
+            log_prob_mix = self.energy_cuda.new_tensor(self.log_prob_mix)
+            tmp = -energy_perturbed - log_prob_mix
+            F_mean = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
+            
+        return F_mean.cpu().numpy(), F_std.cpu().numpy()
+    
+    def _calculate_loss_and_grad_cuda_batch(self, bias_energy):
+        """ calculate the loss and gradient for the FastMBAR objective function using GPUs in batch mode.
 
-        return self.F.cpu().numpy(), x
+        Parameters
+        ----------
+        bias_energy : 1-D ndarray with size of (M,)
+        
+        Returns:
+        -------
+        loss: the value of FastMBAR objective function
+        grad: a 1-D array with a size of (M,).    
+              the gradient of FastMBAR objective function with repsect to bias_energy.
+        """
+        
+        bias_energy = torch.from_numpy(bias_energy).cuda()
+        
+        loss = 0.0
+        grad = 0.0
+
+        ## loop through batches of conformations and accumulate the loss and grad
+        for idx_batch in range(self.conf_num_batches):
+            energy_cuda = torch.from_numpy(self.energy[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
+            biased_energy = energy_cuda + bias_energy.reshape((-1,1))
+            biased_energy_min = biased_energy.min(0, keepdim = True)[0]
+            biased_energy = biased_energy - biased_energy_min
+            exp_biased_energy = torch.exp(-biased_energy)            
+            del biased_energy
+            sum_exp_biased_energy = torch.sum(exp_biased_energy, 0)
+
+            loss = loss + torch.sum(torch.log(sum_exp_biased_energy) -
+                              biased_energy_min.reshape(-1))            
+            grad = grad - torch.sum(exp_biased_energy / sum_exp_biased_energy, 1)
+            
+        loss = loss/self.tot_num_conf + torch.sum(self.num_conf_ratio_cuda * bias_energy)
+        grad = grad/self.tot_num_conf + self.num_conf_ratio_cuda
+
+        return (loss.cpu().numpy().astype(np.float64),
+                grad.cpu().numpy().astype(np.float64))
+    
 
     def _solve_mbar_equation_cuda_batch(self, initial_bias_energy = None, verbose = False):
         """ calculate the relative free energies on GPUs in batch mode for all states by
@@ -361,57 +364,71 @@ class FastMBAR():
         F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
-        self.bias_energy_nz: 1-D float array with size of (M,)
+        self.bias_energy: 1-D float array with size of (M,)
             the bias energy that minimizes the FastMBAR objective function
         """
         
         if initial_bias_energy is None:
-            initial_bias_energy = np.zeros(self.num_states_nz)        
+            initial_bias_energy = np.zeros(self.num_states)
+            
         options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
-        results = optimize.minimize(self._calculate_loss_and_grad_nz_cuda_batch, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        results = optimize.minimize(self._calculate_loss_and_grad_cuda_batch,
+                                    initial_bias_energy, jac=True,
+                                    method='L-BFGS-B', tol=1e-12,
+                                    options = options)
         
         x = results['x']
         self.nit = results['nit']
         self.nfev = results['nfev']        
         
-        self.bias_energy_nz = torch.from_numpy(x).cuda()
-        self.F_nz = - torch.log(self.num_conf_nz_ratio) - self.bias_energy_nz
-
+        bias_energy = torch.from_numpy(x).cuda()
+        F = - torch.log(self.num_conf_ratio_cuda) - bias_energy
+        bias_energy = bias_energy + F[0]
+        F = F - F[0]
+        
         log_prob_mix = []
         ## loop through conformations
         for idx_batch  in range(self.conf_num_batches):
-            self.energy_nz_cuda_batch = torch.from_numpy(self.energy_nz[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
-            biased_energy_nz = self.energy_nz_cuda_batch + self.bias_energy_nz.reshape((-1,1))
-            biased_energy_nz_min = torch.min(biased_energy_nz, 0, keepdim = True)[0]
-            log_prob_mix_batch = torch.log(torch.sum(torch.exp(-(biased_energy_nz - biased_energy_nz_min)), 0)) - biased_energy_nz_min.reshape(-1) 
-            log_prob_mix.append(log_prob_mix_batch)            
-        self.log_prob_mix = torch.cat(log_prob_mix)
+            energy_cuda_batch = torch.from_numpy(self.energy[:, idx_batch*self.conf_batch_size:(idx_batch+1)*self.conf_batch_size]).cuda()
+            biased_energy = energy_cuda_batch + bias_energy.reshape((-1,1))
+            biased_energy_min = torch.min(biased_energy, 0, keepdim = True)[0]
+            log_prob_mix_batch = torch.log(torch.sum(torch.exp(-(biased_energy - biased_energy_min)), 0)) - biased_energy_min.reshape(-1) 
+            log_prob_mix.append(log_prob_mix_batch)
+            
+        log_prob_mix = torch.cat(log_prob_mix)
         
-        if self.num_states_zero != 0:
-            num_batches = self.num_states_zero // self.state_batch_size + 1
-            
-            F_zero = []
-            ## loop through states with zero conformations
-            for idx_batch in range(self.state_num_batches):
-                energy_zero = torch.from_numpy(self.energy_zero[idx_batch*self.state_batch_size:(idx_batch + 1)*self.state_batch_size, :]).cuda()
-                tmp = -energy_zero - self.log_prob_mix
-                F_zero_batch = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
-                F_zero.append(F_zero_batch)
-            F_zero = torch.cat(F_zero)
-            
-            self.F = F_zero.new_zeros(self.num_states)
-            self.F[self.flag_nz] = self.F_nz
-            self.F[self.flag_zero] = F_zero
+        return F.cpu().numpy(), bias_energy.cpu().numpy(), log_prob_mix.cpu().numpy()
 
-        else:
-            self.F = self.F_nz
-            
-        return self.F.cpu().numpy(), x
+    def _calculate_free_energies_of_perturbed_states_cuda_batch(self, energy_perturbed):
+        F_mean = []
+        F_std = []
+
+        ## batch size for seperating states
+        states_batch_size = 2
+        states_num_batches = energy_perturbed.shape[0]//states_batch_size + 1
+
+        for idx_batch in range(states_num_batches):
+            energy_perturbed_batch = torch.from_numpy(energy_perturbed[idx_batch*states_batch_size:(idx_batch+1)*states_batch_size,:]).cuda()
+            if self.bootstrap:
+                F_list =  []
+                for k in range(self.bootstrap_num_rep):
+                    log_prob_mix = torch.from_numpy(self.log_prob_mix_bootstrap[k]).cuda()
+                    tmp = -energy_perturbed_batch[:,self.conf_idx_bootstrap[k]] - log_prob_mix
+                    F = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
+                    F_list.append(F)                
+                F_mean.append(torch.mean(torch.stack(F_list), 0))
+                F_std.append(torch.std(torch.stack(F_list), 0))
+            else:
+                log_prob_mix = torch.from_numpy(self.log_prob_mix).cuda()
+                tmp = -energy_perturbed_batch - log_prob_mix
+                F_mean.append(-(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0]))
+
+        F_mean = torch.cat(F_mean)
+        F_std = torch.cat(F_std)
+        return F_mean.cpu().numpy(), F_std.cpu().numpy()
     
-    def calculate_free_energies(self, bootstrap = False, block_size = 3, num_rep = 10,
-                                verbose = False):
-        
+    def _solve(self):        
         """ calculate the relative free energies for all states
         
         Parameters
@@ -436,26 +453,25 @@ class FastMBAR():
                  Otherwise, it is None
               the uncertainty of F calculated using block bootstrapping 
         """
-            
-        if bootstrap:
-            num_conf_nz = self.num_conf[self.flag_nz]
-            num_conf_nz = num_conf_nz.astype(np.int)
-            num_conf_nz_cumsum = list(np.cumsum(num_conf_nz))
-            num_conf_nz_cumsum.pop(-1)
-            num_conf_nz_cumsum = [0] + num_conf_nz_cumsum
-            initial_F = np.zeros(self.num_states)
+        
+        if self.bootstrap:
+            num_conf = self.num_conf.astype(np.int)
+            num_conf_cumsum = list(np.cumsum(num_conf))
+            num_conf_cumsum.pop(-1)
+            num_conf_cumsum = [0] + num_conf_cumsum
+            initial_bias_energy = np.zeros(self.num_states)
             bootstrap_F = []
-            for _k in range(num_rep):
+            for _k in range(self.bootstrap_num_rep):
                 print(_k)
                 conf_idx = []
                 
-                for i in range(len(num_conf_nz)):
-                    len_seq = num_conf_nz[i] ## using circular block bootstrap
-                    num_sample_block = int(np.ceil(len_seq/block_size))
+                for i in range(len(num_conf)):
+                    len_seq = num_conf[i] ## using circular block bootstrap
+                    num_sample_block = int(np.ceil(len_seq/self.bootstrap_block_size))
                     idxs = np.random.choice(int(len_seq), num_sample_block, replace = True)
                     sample_idx = []
                     for idx in idxs:
-                        sample_idx += list(range(idx, idx+block_size))
+                        sample_idx += list(range(idx, idx+self.bootstrap_block_size))
 
                     for k in range(len(sample_idx)):
                         sample_idx[k] = np.mod(sample_idx[k], len_seq)
@@ -467,19 +483,25 @@ class FastMBAR():
                             sample_idx.pop(k)
                         
                     assert(len(sample_idx) == len_seq)
-                    conf_idx += [ idx + num_conf_nz_cumsum[i] for idx in sample_idx]
+                    conf_idx += [ idx + num_conf_cumsum[i] for idx in sample_idx]
                     
                 assert(len(conf_idx) == self.tot_num_conf)
-                sub_mbar = FastMBAR(self.energy[:, conf_idx], self.num_conf, self.cuda)
-                sub_F = sub_mbar._solve_mbar_equation(initial_F, verbose)
-                initial_F = sub_F
+                sub_mbar = FastMBAR(self.energy[:, conf_idx], self.num_conf, self.cuda, cuda_batch_mode = self.cuda_batch_mode)
+                sub_F, sub_bias_energy, sub_log_prob_mix = sub_mbar._solve_mbar_equation(initial_bias_energy, self.verbose)
+                initial_bias_energy = sub_bias_energy
                 bootstrap_F.append(sub_F)
-                
-            bootstrap_F = np.array(bootstrap_F)
-            mean_F = bootstrap_F.mean(0)
-            std_F = bootstrap_F.std(0)
+                self.F_bootstrap.append(sub_F)
+                self.bias_energy_bootstrap.append(sub_bias_energy)
+                self.log_prob_mix_bootstrap.append(sub_log_prob_mix)
+                self.conf_idx_bootstrap.append(conf_idx)
+
+            self.F = np.mean(self.F_bootstrap, 0)
+            self.F = self.F - self.F[0]
+            self.bias_energy = np.mean(self.bias_energy_bootstrap, 0)
+            self.log_prob_mix = np.mean(self.log_prob_mix_bootstrap, 0)
+            
         else:
-            mean_F, _ = self._solve_mbar_equation(verbose = verbose)
-            std_F = None
-        mean_F = mean_F - mean_F[0]
-        return (mean_F, std_F)
+            F, bias_energy, log_prob_mix = self._solve_mbar_equation(verbose = self.verbose)
+            self.F = F
+            self.bias_energy = bias_energy
+            self.log_prob_mix = log_prob_mix
