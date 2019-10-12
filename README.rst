@@ -1,3 +1,9 @@
+.. image:: https://travis-ci.org/xqding/FastMBAR.svg?branch=master
+    :target: https://travis-ci.org/xqding/FastMBAR
+
+.. image:: https://anaconda.org/shawn_ding/fastmbar/badges/downloads.svg
+     :target: https://anaconda.org/shawn_ding/fastmbar
+    
 FastMBAR: A Fast Solver for Large Scale MBAR/UWHAM Equations
 ============================================================
 
@@ -26,7 +32,7 @@ Installation
 
     where you can replace `myenv_name` with whatever name you want.
 
-  * using `pip`:
+ * using `pip`:
 
     `pip install FastMBAR`
 
@@ -40,6 +46,9 @@ From each of the *M* states, system configurations *x* are sampled based on Bolt
 Let's assume that the number of configurations sampled from the *j* th state is n\ :sub:`j` \, j = 1,2,...,_M_.
 To use these configurations to calculate the relative free energies of the *M* states using MBAR,
 we need to prepare the following energy matrix **U** in the blue bracket:
+
+.. image:: energy_matrix.png
+
 Elements of the above matrix are energies of all the sampled configurations evaluated in all *M* states.
 In addition to the energy matrix **U**, we also need an integer array **v** consisting of
 the numbers of configurations sampled from _M_ states,
@@ -48,3 +57,18 @@ i.e., **v** = (n\ :sub:`1` \, n\ :sub:`2` \, ..., n\ :sub:`M` \).
 With the energy matrix **U** and the number of configuration array **v**,
 we can use the following Python command to calculate the relative free energies of
 the *M* states:
+
+.. code-block:: python
+   \# import the FastMBAR package
+   from FastMBAR import *
+   # construct a FastMBAR object with the energy matrix and the number of configuration array
+   fastmbar = FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if you want to run the calcuation on GPUs
+
+   # the relative free energies of the M states is available via fastmbar.F
+   print(fastmbar.F)
+
+   # if you want to estimate the uncertainty using bootstrapping, change the above command into
+   fastmbar = FastMBAR(energy = U, num_conf = v, cuda=False, bootstrap = True)
+   print(fastmbar.F) ## mean of relative free energies
+   print(fastmbar.F_std) ## standard deviation of estimated relative free energies
+
