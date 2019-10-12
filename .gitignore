@@ -4,3 +4,4 @@ dist/*
 conda_output/*
 FastMBAR.egg-info/*
 __*__
+.DS_Store
