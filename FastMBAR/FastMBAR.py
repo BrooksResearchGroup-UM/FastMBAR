@@ -6,12 +6,14 @@ import torch
 import torch.nn as nn
 import scipy.optimize as optimize
 
-class FastMBAR():    
+class FastMBAR():
     """
     The FastMBAR class is initialized with an energy matrix and an array
-    of num of conformations. After initizlization, the FastMBAR class method
-    calculate_free_energies is used to calculate the relative free energyies 
-    for all states.
+    of num of conformations. The corresponding MBAR equation is solved
+    in the constructor. Therefore, the relative free energies of states
+    used in the energy matrix is calculated in the constructor. The, the 
+    FastMBAR class method calculate_free_energies_for_perturbed_states 
+    can be used to calcualted the relative free energies of perturbed states
     """    
     def __init__(self, energy, num_conf,
                  cuda = False, cuda_batch_mode = None,
@@ -35,21 +37,42 @@ class FastMBAR():
         num_conf: 1-D int ndarray with size (M)
             A 1-D ndarray with size of M, where num_conf[i] is the num of 
             conformations sampled from state i. Therefore, np.sum(num_conf)
-            has to be equal to N.
+            has to be equal to N. All entries in num_conf have to be strictly
+            greater than 0.
         cuda: bool, optional
-            If it is set to be True, then the calculation in FastMBAR.calculate_free_energies 
-            will be run on graphical processing units (GPUs) using CUDA.
+            If it is set to be True, then the calculation will be run on 
+            a graphical processing unit (GPU) using CUDA.
+        cuda_batch_mode: bool, optional
+            The batch mode is turned on when the size of the energy matrix is
+            too large for the memory of a GPU. When cuda_batch_mode is True,
+            the energy matrix will be split into multiple batches which are used
+            sequentially. If cuda_batch_mode = None, it will be set automatically
+            based on the size of energy and the memory of the avaible GPU device.
+        bootstrap: bool, optional
+            If bootstrap is True, the uncertainty of the calculated free energies
+            will be estimate using block bootstraping.
+        bootstrap_block_size: int, optional
+            block size used in block bootstrapping
+        bootstrap_num_rep: int, optional
+            number of repreats in block bootstrapping
+
         """
         ## setting for bootstrap
         self.bootstrap = bootstrap
         self.bootstrap_block_size = bootstrap_block_size
         self.bootstrap_num_rep = bootstrap_num_rep
+
         self.verbose = verbose
 
-        ## set if GPU will be used
         self.cuda = cuda
+        self.cuda_batch_mode = cuda_batch_mode
         
-        assert(np.all(num_conf > 0))
+        assert np.all(num_conf > 0), \
+            '''The number of conformations sampled from each state
+               has to be strictly greater than zero. You can fix this 
+               problem by removing states from which no conformations
+               are sampled.'''
+        
         self.energy = energy.astype(np.float64)
         self.num_conf = num_conf.astype(energy.dtype)
         self.num_states = energy.shape[0]
@@ -61,8 +84,9 @@ class FastMBAR():
             self.num_conf_cuda = torch.from_numpy(self.num_conf).cuda()
             self.num_conf_ratio_cuda = torch.from_numpy(self.num_conf_ratio).cuda()
 
-            ## check if the GPU device has enough memory. If not, cuda_batch_mode is
-            ## turned on
+            ## check if the GPU device has enough memory.
+            ## If not, cuda_batch_mode is turned on
+            
             #### automatically determine if cuda_batch_mode is on or off
             self.total_GPU_memory = torch.cuda.get_device_properties(0).total_memory
             if self.energy.size * self.energy.itemsize < self.total_GPU_memory / 10:
@@ -84,26 +108,24 @@ class FastMBAR():
 
             ## batch size for seperating conformations
             self.conf_batch_size = int(self.total_GPU_memory/20/self.energy.shape[0]/self.energy.itemsize)
-            self.conf_batch_size = min(2048, self.conf_batch_size)
+            self.conf_batch_size = min(1024, self.conf_batch_size)
             self.conf_num_batches = torch.sum(self.num_conf_cuda) / self.conf_batch_size
             self.conf_num_batches = int(self.conf_num_batches.item()) + 1
 
-            # ## batch size for seperating states
-            # self.state_batch_size = int(self.total_GPU_memory/20/self.energy_zero.shape[1]/self.energy_zero.itemsize)
-            # self.state_batch_size = min(64, self.state_batch_size)
-            # self.state_num_batches = self.num_states_zero // self.state_batch_size + 1
-
         ## set self._solve_mbar_equation to specific function based on settings
         if self.cuda and not self.cuda_batch_mode:
-            print("solve MBAR equation using CUDA and the batch mode is off")            
+            if self.verbose:
+                print("solve MBAR equation using CUDA and the batch mode is off")
             self._solve_mbar_equation = self._solve_mbar_equation_cuda
             self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cuda
         elif self.cuda and self.cuda_batch_mode:
-            print("solve MBAR equation using CUDA and the batch mode is on")            
+            if self.verbose:
+                print("solve MBAR equation using CUDA and the batch mode is on")
             self._solve_mbar_equation = self._solve_mbar_equation_cuda_batch
             self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cuda_batch            
         else:
-            print("solve MBAR equation using CPU")                        
+            if self.verbose:
+                print("solve MBAR equation using CPU")
             self._solve_mbar_equation = self._solve_mbar_equation_cpu
             self.calculate_free_energies_of_perturbed_states = self._calculate_free_energies_of_perturbed_states_cpu            
 
@@ -124,14 +146,17 @@ class FastMBAR():
             self.log_prob_mix_bootstrap = []
             self.conf_idx_bootstrap = []
             
-        self.nit = None        
+        self.nit = None
+        
+        ## solve MBAR equations through minimization
+        self._solve()
         
     def _calculate_loss_and_grad_cpu(self, bias_energy):
         """ calculate the loss and gradient for the FastMBAR objective function using CPUs.
 
         Parameters
         ----------
-        bias_energy_nz : 1-D ndarray with size of (M,)
+        bias_energy : 1-D ndarray with size of (M,)
         
         Returns:
         -------
@@ -140,7 +165,7 @@ class FastMBAR():
               the gradient of FastMBAR objective function with repsect to bias_energy_nz.
         """
         
-        assert(self.num_states == len(bias_energy))
+        assert self.num_states == len(bias_energy)
         
         biased_energy = self.energy + bias_energy.reshape((-1,1))
         biased_energy_min = biased_energy.min(0, keepdims = True)
@@ -157,8 +182,8 @@ class FastMBAR():
         return loss, grad
         
     def _solve_mbar_equation_cpu(self, initial_bias_energy = None, verbose = False):
-        """ calculate the relative free energies on CPUs for all states by
-        solving the MBAR equation once with the initial guess of initial_bias_energy
+        """ solve the MBAR equation using CPUs for all states by minimizing a convex
+        function with the initial_bias_energy as a starting point.
 
         Parameters
         ----------
@@ -172,12 +197,16 @@ class FastMBAR():
         F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
-        self.bias_energy_nz: 1-D float array with size of (M,)
+        bias_energy: 1-D float array with size of (M,)
             the bias energy that minimizes the FastMBAR objective function
+
+        log_prob_mix: 1-D float array with size of (N,)
+            the log of the mixed distribution probability
         """
 
         if initial_bias_energy is None:
             initial_bias_energy = np.zeros(self.num_states)
+        
         options = {'disp': verbose, 'gtol': 1e-8}        
         results = optimize.minimize(self._calculate_loss_and_grad_cpu, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
         
@@ -198,6 +227,23 @@ class FastMBAR():
         return F, bias_energy, log_prob_mix
     
     def _calculate_free_energies_of_perturbed_states_cpu(self, energy_perturbed):
+        """ calculate free energies for perturbed states.
+
+        Parameters
+        -----------
+        energy_perturbed: 2-D float ndarray with size of (L,N)
+            each row of the energy_perturbed matrix represents a state and 
+            the value energy_perturbed[l,n] represents the reduced energy
+            of the n'th conformation in the l'th perturbed state.
+        Returns
+        -------
+        F_mean: 1-D float ndarray with a size of (L,)
+            the relative free energies of the perturbed states.
+            it is a mean of multiple estimations if bootstrap is used,
+        F_std: 1-D float ndarray with a size of (L,)
+            the standard deviation of the estimated F. it is esimated 
+            using bootstrap. when bootstrap is off, it is None
+        """
         F_mean = None
         F_std = None
         if self.bootstrap:
@@ -218,13 +264,13 @@ class FastMBAR():
 
         Parameters
         ----------
-        bias_energy_nz : 1-D ndarray with size of (M,)
+        bias_energy : 1-D ndarray with size of (M,)
         
         Returns:
         -------
         loss: the value of FastMBAR objective function
         grad: a 1-D array with a size of (M,).    
-              the gradient of FastMBAR objective function with repsect to bias_energy_nz.
+              the gradient of FastMBAR objective function with repsect to bias_energy.
         """
         assert(self.num_states == len(bias_energy))
         
@@ -248,8 +294,8 @@ class FastMBAR():
                 grad.cpu().numpy().astype(np.float64))
     
     def _solve_mbar_equation_cuda(self, initial_bias_energy = None, verbose = False):
-        """ calculate the relative free energies on GPUs for all states by
-        solving the MBAR equation once with the initial guess of initial_bias_energy
+        """ solve the MBAR equation using a GPU for all states by minimizing a convex
+        function with the initial_bias_energy as a starting point.
 
         Parameters
         ----------
@@ -263,8 +309,11 @@ class FastMBAR():
         F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
-        self.bias_energy_nz: 1-D float array with size of (M,)
+        bias_energy: 1-D float array with size of (M,)
             the bias energy that minimizes the FastMBAR objective function
+
+        log_prob_mix: 1-D float array with size of (N,)
+            the log of the mixed distribution probability
         """
         
         if initial_bias_energy is None:
@@ -289,6 +338,24 @@ class FastMBAR():
         return F.cpu().numpy(), bias_energy.cpu().numpy(), log_prob_mix.cpu().numpy()
 
     def _calculate_free_energies_of_perturbed_states_cuda(self, energy_perturbed):
+        """ calculate free energies for perturbed states.
+
+        Parameters
+        -----------
+        energy_perturbed: 2-D float ndarray with size of (L,N)
+            each row of the energy_perturbed matrix represents a state and 
+            the value energy_perturbed[l,n] represents the reduced energy
+            of the n'th conformation in the l'th perturbed state.
+        Returns
+        -------
+        F_mean: 1-D float ndarray with a size of (L,)
+            the relative free energies of the perturbed states.
+            it is a mean of multiple estimations if bootstrap is used,
+        F_std: 1-D float ndarray with a size of (L,)
+            the standard deviation of the estimated F. it is esimated 
+            using bootstrap. when bootstrap is off, it is None
+        """
+        
         F_mean = None
         F_std = None
         energy_perturbed = self.energy_cuda.new_tensor(energy_perturbed)
@@ -305,8 +372,12 @@ class FastMBAR():
             log_prob_mix = self.energy_cuda.new_tensor(self.log_prob_mix)
             tmp = -energy_perturbed - log_prob_mix
             F_mean = -(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0])
+
+        F_mean = F_mean.cpu().numpy()
+        if F_std is not None:
+            F_std = F_std.cpu().numpy()
             
-        return F_mean.cpu().numpy(), F_std.cpu().numpy()
+        return F_mean, F_std
     
     def _calculate_loss_and_grad_cuda_batch(self, bias_energy):
         """ calculate the loss and gradient for the FastMBAR objective function using GPUs in batch mode.
@@ -349,8 +420,9 @@ class FastMBAR():
     
 
     def _solve_mbar_equation_cuda_batch(self, initial_bias_energy = None, verbose = False):
-        """ calculate the relative free energies on GPUs in batch mode for all states by
-        solving the MBAR equation once with the initial guess of initial_bias_energy
+        """ solve the MBAR equation using a GPU in a batch mode for all states 
+            by minimizing a convex function with the initial_bias_energy as 
+            a starting point.
 
         Parameters
         ----------
@@ -364,9 +436,12 @@ class FastMBAR():
         F: 1-D float array with size of (M,)
             the relative unitless free energies for all states
 
-        self.bias_energy: 1-D float array with size of (M,)
+        bias_energy: 1-D float array with size of (M,)
             the bias energy that minimizes the FastMBAR objective function
-        """
+
+        log_prob_mix: 1-D float array with size of (N,)
+            the log of the mixed distribution probability
+        """        
         
         if initial_bias_energy is None:
             initial_bias_energy = np.zeros(self.num_states)
@@ -401,11 +476,29 @@ class FastMBAR():
         return F.cpu().numpy(), bias_energy.cpu().numpy(), log_prob_mix.cpu().numpy()
 
     def _calculate_free_energies_of_perturbed_states_cuda_batch(self, energy_perturbed):
+        """ calculate free energies for perturbed states.
+
+        Parameters
+        -----------
+        energy_perturbed: 2-D float ndarray with size of (L,N)
+            each row of the energy_perturbed matrix represents a state and 
+            the value energy_perturbed[l,n] represents the reduced energy
+            of the n'th conformation in the l'th perturbed state.
+        Returns
+        -------
+        F_mean: 1-D float ndarray with a size of (L,)
+            the relative free energies of the perturbed states.
+            it is a mean of multiple estimations if bootstrap is used,
+        F_std: 1-D float ndarray with a size of (L,)
+            the standard deviation of the estimated F. it is esimated 
+            using bootstrap. when bootstrap is off, it is None
+        """
+        
         F_mean = []
         F_std = []
 
         ## batch size for seperating states
-        states_batch_size = 2
+        states_batch_size = 16
         states_num_batches = energy_perturbed.shape[0]//states_batch_size + 1
 
         for idx_batch in range(states_num_batches):
@@ -425,35 +518,16 @@ class FastMBAR():
                 F_mean.append(-(torch.log(torch.mean(torch.exp(tmp-torch.max(tmp,1,keepdim=True)[0]), 1)) + torch.max(tmp, 1)[0]))
 
         F_mean = torch.cat(F_mean)
-        F_std = torch.cat(F_std)
-        return F_mean.cpu().numpy(), F_std.cpu().numpy()
+        F_mean = F_mean.cpu().numpy()
+        if len(F_std) != 0:
+            F_std = torch.cat(F_std)
+        else:
+            F_std = None
+        return F_mean, F_std
     
     def _solve(self):        
-        """ calculate the relative free energies for all states
-        
-        Parameters
-        ----------
-        bootstrap: bool, optional
-            if bootstrap is true, block bootstrapping is used to estimate
-            the uncertainty of the calculated relative free energies
-        block_size: int, optional
-            the size of block used in block bootstrapping
-        num_rep: int, optional
-            the number of repeats used in bootstrapping to estimate uncertainty
-        verbose: bool, optional
-            if verbose is true, the detailed information of running
-            LBFGS optimization is printed.
-
-        Returns
-        -------
-        (F, F_std): 
-          F: 1-D float array with size of (M,)
-              the relative unitless free energies for all states
-          F_std: 1-D float array with size of (M,) if bootstrap = True.
-                 Otherwise, it is None
-              the uncertainty of F calculated using block bootstrapping 
-        """
-        
+        """ solve the MBAR equation """
+                
         if self.bootstrap:
             num_conf = self.num_conf.astype(np.int)
             num_conf_cumsum = list(np.cumsum(num_conf))
@@ -462,7 +536,6 @@ class FastMBAR():
             initial_bias_energy = np.zeros(self.num_states)
             bootstrap_F = []
             for _k in range(self.bootstrap_num_rep):
-                print(_k)
                 conf_idx = []
                 
                 for i in range(len(num_conf)):
