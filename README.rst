@@ -23,19 +23,20 @@ Installation
   - If you want to install `FastMBAR` and dependent packages in the main 
     conda environment, run the command: 
     
-    `conda install -c shawn_ding -c pytorch fastmbar`
+    ``conda install -c shawn_ding -c pytorch fastmbar``
        
   - If you want to install them in a specific conda environment, 
     run the following commands:
 
-    `conda create -n myenv_name`
-    `conda install -n myenv_name -c shawn_ding -c pytorch fastmbar`,
+    ``conda create -n myenv_name`` 
+    
+    ``conda install -n myenv_name -c shawn_ding -c pytorch fastmbar`` 
 
     where you can replace `myenv_name` with whatever name you want.
 
  * using `pip`:
 
-   `pip install FastMBAR`
+   ``pip install FastMBAR``
 
 Usage
 -----
