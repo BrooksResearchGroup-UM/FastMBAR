@@ -136,6 +136,7 @@ class FastMBAR():
 
             ## result of free energies
             self.F = None
+            self.F_std = None
 
             ## log of the mixed distribution probablity of each conformation
             self.log_prob_mix = None
@@ -569,6 +570,8 @@ class FastMBAR():
                 self.conf_idx_bootstrap.append(conf_idx)
 
             self.F = np.mean(self.F_bootstrap, 0)
+            self.F_std = np.std(self.F_bootstrap, 0)
+            
             self.F = self.F - self.F[0]
             self.bias_energy = np.mean(self.bias_energy_bootstrap, 0)
             self.log_prob_mix = np.mean(self.log_prob_mix_bootstrap, 0)
