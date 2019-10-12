@@ -17,7 +17,9 @@ temperature/Hamiltonian replica exchange simulations to calculate relative free 
 
 Installation
 ------------
+
 `FastMBAR` can be installed via `conda` or `pip` using the following commands:
+
  * using `conda`:
 
   - If you want to install `FastMBAR` and dependent packages in the main 
