@@ -54,8 +54,20 @@ fastmbar = FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if y
 # the relative free energies of the M states is available via fastmbar.F
 print(fastmbar.F)
 
+# if you want to estimate the uncertainty, change the above command into
+# F, F_std = mbar.calculate_free_energies(bootstrap=True)
+
+```
+
+Using the object fastmbar, we can also calculate free energies of other states (also referred as perturbed states)
+from which no conformations are sampled.
+In order to do that, we need to prepare the perturbed energy matrix **U_perturbed** shown above in the red bracket.
+Entries in the perturbed energy matrix are reduced energy values of conformations in perturbed states.
+With the perturbed energy matrix **U_perturbed**, we can use the following command to calculate the relative free 
+energies of the perturbed states:
+```Python
 # calcualte free energies by solving the MBAR equations
-F = mbar.calculate_free_energies()
+F_perturbed, _ = calculate_free_energies_of_perturbed_states(U_perturbed)
 
 # if you want to estimate the uncertainty, change the above command into
 # F, F_std = mbar.calculate_free_energies(bootstrap=True)
