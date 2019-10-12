@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-with open("README.md", 'r') as file_handle:
+with open("README.rst", 'r') as file_handle:
     long_description = file_handle.read()
 
 setup(
@@ -10,7 +10,7 @@ setup(
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
     long_description = long_description,
-    long_description_content_type = "text/markdown",
+    long_description_content_type = "text/rst",
     url = "https://github.com/xqding/FastMBAR",
     packages = find_packages(),
     install_requires=['numpy>=1.14.0',
