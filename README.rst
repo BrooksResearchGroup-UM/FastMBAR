@@ -23,18 +23,19 @@ Installation
   - If you want to install `FastMBAR` and dependent packages in the main 
     conda environment, run the command: 
     
-    `conda install -c shawn_ding -c pytorch fastmbar`.
+    `conda install -c shawn_ding -c pytorch fastmbar`
+       
   - If you want to install them in a specific conda environment, 
     run the following commands:
 
-    | `conda create -n myenv_name`
-    | `conda install -n myenv_name -c shawn_ding -c pytorch fastmbar`,
+    `conda create -n myenv_name`
+    `conda install -n myenv_name -c shawn_ding -c pytorch fastmbar`,
 
     where you can replace `myenv_name` with whatever name you want.
 
  * using `pip`:
 
-    `pip install FastMBAR`
+   `pip install FastMBAR`
 
 Usage
 -----
@@ -59,7 +60,8 @@ we can use the following Python command to calculate the relative free energies 
 the *M* states:
 
 .. code-block:: python
-   \# import the FastMBAR package
+
+   # import the FastMBAR package
    from FastMBAR import *
    # construct a FastMBAR object with the energy matrix and the number of configuration array
    fastmbar = FastMBAR(energy = U, num_conf = v, cuda=False) # set cuda = True if you want to run the calcuation on GPUs
@@ -70,5 +72,5 @@ the *M* states:
    # if you want to estimate the uncertainty using bootstrapping, change the above command into
    fastmbar = FastMBAR(energy = U, num_conf = v, cuda=False, bootstrap = True)
    print(fastmbar.F) ## mean of relative free energies
-   print(fastmbar.F_std) ## standard deviation of estimated relative free energies
+   print(fastmbar.F_std) ## standard deviation of estimated relative free energies.
 
