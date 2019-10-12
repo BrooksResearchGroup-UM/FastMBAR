@@ -68,5 +68,5 @@ With the perturbed energy matrix **U_perturbed**, we can use the following comma
 energies of the perturbed states:
 ```Python
 # calcualte free energies by solving the MBAR equations
-F_perturbed, F_perturbed_std = calculate_free_energies_of_perturbed_states(U_perturbed)
+F_perturbed, F_perturbed_std = fastmbar.calculate_free_energies_of_perturbed_states(U_perturbed)
 ```
