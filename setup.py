@@ -5,7 +5,7 @@ with open("README.rst", 'r') as file_handle:
 
 setup(
     name = "FastMBAR",
-    version = "0.0.6",
+    version = "0.0.7",
     author = "Xinqiang (Shawn) Ding",
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
