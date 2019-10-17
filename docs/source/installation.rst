@@ -36,7 +36,13 @@ FastMBAR.
 
 * Testing of Installation
   
-  To test
+  Run the following command in a terminal to test if
+  FastMBAR has been installed successfully.
+
+  .. code-block:: bash
+     python -m FastMBAR.test_installation
+
+
   
 
 

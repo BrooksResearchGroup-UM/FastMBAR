@@ -18,7 +18,7 @@ class FastMBAR():
     def __init__(self, energy, num_conf,
                  cuda = False, cuda_batch_mode = None,
                  bootstrap = False, bootstrap_block_size = 3,
-                 bootstrap_num_rep = 10,
+                 bootstrap_num_rep = 5,
                  verbose = False):
         """Initizlizer for class FastMBAR
 

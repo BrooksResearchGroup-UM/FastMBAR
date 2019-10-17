@@ -10,7 +10,7 @@ setup(
     author_email = "xqding@umich.edu",
     description = "A fast solver for large scale MBAR/UWHAM equations",
     long_description = long_description,
-    long_description_content_type = "text/rst",
+    long_description_content_type = "text/x-rst",
     url = "https://github.com/xqding/FastMBAR",
     packages = find_packages(),
     install_requires=['numpy>=1.14.0',
