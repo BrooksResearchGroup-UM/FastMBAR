@@ -18,7 +18,7 @@ FastMBAR.
 
 * Installation
 
-  Open a Terminal and run the following command based on if you
+  Open a Terminal and run the following command depending on if you
   have installed Anaconda:
     
   * With Anaconda
@@ -46,10 +46,8 @@ FastMBAR.
 
   On a computer with GPUs, the above command will
   print the following output if FastMBAR has been
-  installed correctly:
+  installed correctly::
      
-  .. code-block:: bash
-		  
      ========================================
      Start testing FastMBAR:
      ========================================
@@ -71,10 +69,8 @@ FastMBAR.
 
   On a computer without GPUs, the above command will
   print the following output if FastMBAR has been
-  installed correctly:
+  installed correctly::
      
-  .. code-block:: bash
-		  
      ========================================
      Start testing FastMBAR:
      ========================================
