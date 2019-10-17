@@ -40,7 +40,56 @@ FastMBAR.
   FastMBAR has been installed successfully.
 
   .. code-block:: bash
+
      python -m FastMBAR.test_installation
+
+
+  On a computer with GPUs, the above command will
+  print the following output if FastMBAR has been
+  installed correctly:
+     
+  .. code-block:: bash
+		  
+     ========================================
+     Start testing FastMBAR:
+     ========================================
+
+     Without bootstrap
+     ----------------------------------------
+     RMSD (CPU calculation and reference results): 0.01 < 0.05. PASSED.
+     RMSD (GPU calculation and reference results): 0.01 < 0.05. PASSED.
+     RMSD (GPU-batch-mode calculation and reference results): 0.01 < 0.05. PASSED.
+
+     With bootstrap
+     ----------------------------------------
+     RMSD (CPU calculation and reference results): 0.00 < 0.05. PASSED.
+     RMSD (GPU calculation and reference results): 0.02 < 0.05. PASSED.
+     RMSD (GPU-batch-mode calculation and reference results): 0.01 < 0.05. PASSED.
+     ========================================
+     ALL TESTS ARE PASSED.
+
+
+  On a computer without GPUs, the above command will
+  print the following output if FastMBAR has been
+  installed correctly:
+     
+  .. code-block:: bash
+		  
+     ========================================
+     Start testing FastMBAR:
+     ========================================
+
+     Without bootstrap
+     ----------------------------------------
+     RMSD (CPU calculation and reference results): 0.01 < 0.05. PASSED.
+
+     With bootstrap
+     ----------------------------------------
+     RMSD (CPU calculation and reference results): 0.00 < 0.05. PASSED.
+     ========================================
+     ALL TESTS ARE PASSED.
+     
+     
 
 
   
