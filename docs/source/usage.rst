@@ -29,6 +29,12 @@ Usage
      to compute the relative free energies.
 
   MBAR equations are used in the second step to reweight conformations and
-  compute relative free energies.
+  compute relative free energies :math:`F_k` for :math:`k = 1, ..., M`.
+  After MBAR equations are solved in the second step, they can also be used
+  to calculate relative free energies of perturbed states from which no
+  conformations are sampled. Let us assume there are :math:`L` perturbed states
+  and the :math:`l` th perturbed state has a reduced potential energy function
+  of :math:`U^{\prime}_l(x)`.
 
+  
 .. image:: ../../energy_matrix.pdf
