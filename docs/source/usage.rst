@@ -63,7 +63,7 @@ If the sampling is conducted as described above, the matrix of reduced potential
 energies in sampled states should be calculated as the matrix :math:`A_{M,N}` as shown in the
 blue bracket in the following figure:
 
-.. image:: ../../energy_matrix.pdf
+.. image:: ../../energy_matrix.png
 	   
 The matrix :math:`A` has :math:`M` rows and :math:`N` columns, where :math:`M` is
 the number of states from which conformations are sampled and :math:`N` is the
