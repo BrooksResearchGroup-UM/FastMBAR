@@ -24,7 +24,7 @@ free energies for a large number of states, such as in calculating multiple
 dimensional PMF in umbrella sampling and calculating free energies for
 a large number of states in alchemical free energy calculation 
 
-How is it used?
+How to use FastMBAR?
 --------------------
 It just takes a few lines of commands to install and use FastMBAR.
 
