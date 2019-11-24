@@ -10,7 +10,7 @@ def test_FastMBAR():
 
     ## draw samples from multiple states, each of which is a harmonic
     ## osicillator
-    #np.random.seed(0)
+    np.random.seed(0)
     num_states = 10 ## num of states with nonzero num of samples
     num_conf = np.array([2000 for i in range(num_states)])
     mu = np.random.normal(0, 4, size = num_states) ## equalibrium positions
