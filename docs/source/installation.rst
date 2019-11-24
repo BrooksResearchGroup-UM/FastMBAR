@@ -42,12 +42,9 @@ FastMBAR.
   .. code-block:: bash
      python -m FastMBAR.test_installation
 
+  If FastMBAR has been successfully installed, it will
+  output the following information:
 
-  
+  .. code-block:: bash
 
-
-  
-
-
-
-
+     
