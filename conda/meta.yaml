@@ -1,6 +1,6 @@
 package:
   name: fastmbar
-  version: "0.0.5"
+  version: "0.0.8"
 
 source:
   path: ../
@@ -9,9 +9,6 @@ requirements:
   build:
     - python
     - setuptools
-    - numpy >=1.14.0
-    - scipy >=1.1.0
-    - pytorch >=1.0.0
     
   run:
     - python
