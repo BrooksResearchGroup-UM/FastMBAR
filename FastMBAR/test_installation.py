@@ -51,7 +51,7 @@ def test_FastMBAR():
     F = np.concatenate((mbar.F, F_perturbed))
     diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
     assert(diff_cpu <= 0.05)    
-    print("RMSD (CPU calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+    print("RMSD (CPU calculation and reference results) < 0.05. PASSED.")
 
     if torch.cuda.is_available():
         ## calcuate free energies using GPUs
@@ -60,14 +60,14 @@ def test_FastMBAR():
         F = np.concatenate((mbar.F, F_perturbed))
         diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
         assert(diff_cpu <= 0.05)            
-        print("RMSD (GPU calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+        print("RMSD (GPU calculation and reference results) < 0.05. PASSED.")
 
         mbar = FastMBAR(energy, num_conf, cuda = True, cuda_batch_mode = True,  bootstrap = False)
         F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
         F = np.concatenate((mbar.F, F_perturbed))
         diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
         assert(diff_cpu <= 0.05)        
-        print("RMSD (GPU-batch-mode calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+        print("RMSD (GPU-batch-mode calculation and reference results) < 0.05. PASSED.")
         
     print("")
     print("With bootstrap")
@@ -78,7 +78,7 @@ def test_FastMBAR():
     F = np.concatenate((mbar.F, F_perturbed))
     diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
     assert(diff_cpu <= 0.05) 
-    print("RMSD (CPU calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+    print("RMSD (CPU calculation and reference results) < 0.05. PASSED.")
 
     if torch.cuda.is_available():    
         ## calcuate free energies using GPUs
@@ -87,14 +87,14 @@ def test_FastMBAR():
         F = np.concatenate((mbar.F, F_perturbed))
         diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
         assert(diff_cpu <= 0.05)            
-        print("RMSD (GPU calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+        print("RMSD (GPU calculation and reference results) < 0.05. PASSED.")
         
         mbar = FastMBAR(energy, num_conf, cuda = True, cuda_batch_mode = True,  bootstrap = True)
         F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
         F = np.concatenate((mbar.F, F_perturbed))
         diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
         assert(diff_cpu <= 0.05)        
-        print("RMSD (GPU-batch-mode calculation and reference results): {:.2f} < 0.05. PASSED.".format(diff_cpu))
+        print("RMSD (GPU-batch-mode calculation and reference results): {:.2f} < 0.05. PASSED.")
 
     print("="*40)
     print("ALL TESTS ARE PASSED.")
