@@ -321,7 +321,7 @@ class FastMBAR():
             initial_bias_energy = np.zeros(self.num_states)
         options = {'disp': verbose, 'gtol': 1e-8}
         self.x_records = []
-        results = optimize.minimize(self._calculate_loss_and_grad_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-12, options = options)
+        results = optimize.minimize(self._calculate_loss_and_grad_cuda, initial_bias_energy, jac=True, method='L-BFGS-B', tol=1e-16, options = options)
         
         x = results['x']
         self.nit = results['nit']
@@ -451,7 +451,7 @@ class FastMBAR():
         self.x_records = []
         results = optimize.minimize(self._calculate_loss_and_grad_cuda_batch,
                                     initial_bias_energy, jac=True,
-                                    method='L-BFGS-B', tol=1e-12,
+                                    method='L-BFGS-B', tol=1e-16,
                                     options = options)
         
         x = results['x']
