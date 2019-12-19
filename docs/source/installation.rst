@@ -12,12 +12,9 @@ https://www.anaconda.com/distribution/.
 
 2. Install FastMBAR
 -------------------
-Although you can install and use FastMBAR without installing Anaconda,
-I still highly recommend that you install Anaconda before installing
-FastMBAR.
 
-* Installation
-
+* using pip  
+  
   Open a Terminal and run the following command depending on if you
   have installed Anaconda:
     
