@@ -1,8 +1,6 @@
 .. image:: https://travis-ci.org/xqding/FastMBAR.svg?branch=master
     :target: https://travis-ci.org/xqding/FastMBAR
 
-.. image:: https://anaconda.org/shawn_ding/fastmbar/badges/downloads.svg
-     :target: https://anaconda.org/shawn_ding/fastmbar
     
 FastMBAR: A Fast Solver for Large Scale MBAR/UWHAM Equations
 ============================================================
