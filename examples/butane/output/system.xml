@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<System openmmVersion="7.3.1" type="System" version="1">
+<System openmmVersion="7.4.1" type="System" version="1">
 	<PeriodicBoxVectors>
 		<A x="2" y="0" z="0"/>
 		<B x="0" y="2" z="0"/>
@@ -141,7 +141,7 @@
 			<Maps/>
 			<Torsions/>
 		</Force>
-		<Force alpha="0" cutoff="1" dispersionCorrection="1" ewaldTolerance=".0005" forceGroup="6" ljAlpha="0" ljnx="0" ljny="0" ljnz="0" method="0" nx="0" ny="0" nz="0" recipForceGroup="-1" rfDielectric="78.3" switchingDistance="-1" type="NonbondedForce" useSwitchingFunction="0" version="3">
+		<Force alpha="0" cutoff="1" dispersionCorrection="0" ewaldTolerance=".0005" forceGroup="6" ljAlpha="0" ljnx="0" ljny="0" ljnz="0" method="0" nx="0" ny="0" nz="0" recipForceGroup="-1" rfDielectric="78.3" switchingDistance="-1" type="NonbondedForce" useSwitchingFunction="0" version="3">
 			<GlobalParameters/>
 			<ParticleOffsets/>
 			<ExceptionOffsets/>
