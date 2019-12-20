@@ -1,0 +1,20 @@
+REMARK  TITLE                                                                         
+REMARK  CREATED BY XINQIANG DING (XQDING_AT_UMICH.EDU)                                
+REMARK  AT 2016/04/18 03:41:02                                                        
+REMARK   DATE:    12/19/19     21:19:35      CREATED BY USER: xqding                  
+ATOM      1  H11 BUTA    1       0.353  -0.822   0.042  1.00  0.00      SEG 
+ATOM      2  H12 BUTA    1       1.572   0.403   0.559  1.00  0.00      SEG 
+ATOM      3  H13 BUTA    1       0.240   0.873  -0.561  1.00  0.00      SEG 
+ATOM      4  C1  BUTA    1       0.945   0.058  -0.291  1.00  0.00      SEG 
+ATOM      5  H21 BUTA    1       2.405   0.588  -1.804  1.00  0.00      SEG 
+ATOM      6  H22 BUTA    1       2.553  -1.093  -1.191  1.00  0.00      SEG 
+ATOM      7  C2  BUTA    1       1.821  -0.308  -1.493  1.00  0.00      SEG 
+ATOM      8  H31 BUTA    1       0.243  -0.064  -2.956  1.00  0.00      SEG 
+ATOM      9  H32 BUTA    1       0.493  -1.755  -2.406  1.00  0.00      SEG 
+ATOM     10  C3  BUTA    1       1.021  -0.818  -2.698  1.00  0.00      SEG 
+ATOM     11  H41 BUTA    1       2.385  -0.153  -4.267  1.00  0.00      SEG 
+ATOM     12  H42 BUTA    1       2.670  -1.840  -3.702  1.00  0.00      SEG 
+ATOM     13  H43 BUTA    1       1.264  -1.472  -4.769  1.00  0.00      SEG 
+ATOM     14  C4  BUTA    1       1.886  -1.088  -3.932  1.00  0.00      SEG 
+TER      15      BUTA     1
+END
