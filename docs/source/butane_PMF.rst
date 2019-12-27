@@ -212,9 +212,40 @@ Here we use the Python package mdtraj to compute dihedrals.
 4. Use FastMBAR to solve MBAR/UWHAM equations and compute the PMF
 -----------------------------------------------------------------
 
+Two steps are required to compute PMF using FastMBAR based on umbrella sampling.
+Firstly, we need to compute the relative free energies of the biased ensembles used in umbrella sampling,
+i.e., the NVT ensembles with biased potential energies.
+Secondly, samples from umbreall sampling are reweighted to compute the PMF.
+
+Simulations in umbrealla sampling have different biasing potential energies.
+They are viewed as different thermodynamic states.
+Therefore, we have :math:`M` states and samples from these states.
+As shown in Usage, we can use FastMBAR to compute the relative free energies of these :math:`M` states.
+In order to do it, we need to compute the reduced energy matrix :math:`A_{M,N}` as shown in Fig. 1,
+where :math:`U(x)` is the potential energy function; :math:`B_i(x)` is the biasing potential added
+in the :math:`i` th state. In this case, the biasing potential is added to the dihedral (3-6-9-13),
+so :math:`B_i(x) = 0.5*k*\Delta^2`, where :math:`\Delta = min(|\theta(x) - \theta^0_i|, 2\pi - |\theta(x) - \theta^0_i|)`
+and :math:`\theta(x)` is the dihedral (3-6-9-13) calculated based on Cartesian coordinates :math:`x` .
+
+.. image:: ../../examples/butane/data/Fig_1.png
+
+Compared to general cases, the reduced potential energy matrix :math:`A_{M,N}` in umbrella sampling has a special property.
+The energy functions of the :math:`M` states are :math:`U(x) + B_i(x)`. They all have the common component :math:`U(x)`.
+Removing the common component :math:`U(x)` from the energy matrix :math:`A_{M,N}` does not affect the relative free
+energies of the :math:`M` states. Therefore, we can ommitting computing :math:`U(x)` when compute the energy matrix :math:`A_{M,N}`,
+as shown in Fig. 2
+	   
+.. image:: ../../examples/butane/data/Fig_2.png	   
+
+
+As shown in Fig. 2, we can compute the reduced energy matrix :math:`A_{M,N}` just based on dihedral values from umbrella sampling.
+In the following script, we read the dihedral values and compute the reduced energy matrix :math:`A_{M,N}`.
+Based on the reduced energy matrix and the number of conformations sampled from each state,
+we can compute the relative free enegies of the :math:`M` states using FastMBAR.
 
 .. code-block:: python
 		
+   ## read dihedral values from umbrella sampling
    thetas = []
    num_conf = []
    for theta0_index in range(M):
@@ -225,7 +256,8 @@ Here we use the Python package mdtraj to compute dihedrals.
    num_conf = np.array(num_conf).astype(np.float64)
    N = len(thetas)
    
-   reduced_energy_matrix = np.zeros((M, N))
+   ## compute reduced energy matrix A
+   A = np.zeros((M, N))
    K = 100
    T = 298.15 * unit.kelvin
    kbT = unit.BOLTZMANN_CONSTANT_kB * 298.15 * unit.kelvin * unit.AVOGADRO_CONSTANT_NA
@@ -237,20 +269,36 @@ Here we use the Python package mdtraj to compute dihedrals.
        current_theta0 = theta0[theta0_index]
        diff = np.abs(thetas - current_theta0)
        diff = np.minimum(diff, 2*math.pi-diff)
-       reduced_energy_matrix[theta0_index, :] = 0.5*K*diff**2/kbT
+       A[theta0_index, :] = 0.5*K*diff**2/kbT
    
-   fastmbar = FastMBAR(energy = reduced_energy_matrix, num_conf = num_conf, cuda=False, verbose = True)
-   #print(fastmbar.F)
+   ## solve MBAR equations using FastMBAR
+   fastmbar = FastMBAR(energy = A, num_conf = num_conf, cuda=False, verbose = True)
+   print("Relative free energies: ", fastmbar.F)
+
+
+Now we are ready to compute the PMF.
+Solving MBAR equations yields the relative free energies of the :math:`M` states,
+all of which have biasing potential enegies.
+Knowing the relative free enegies of the :math:`M` states enables us to compute
+the PMF using an easy reweighting procesure.
+In order to do that, we need to compute the energy matrix :math:`B_{L,N}` as shown in Fig. 1 and Fig. 2.
+
+To represent the PMF of the dihedral, we split the dihedral range, :math:`[-\pi, \pi]` into :math:`L` windows: :math:`[\theta_{l-1}, \theta_l]` for :math:`l = 1, ..., L`.
+Then we can represent the PMF by computing the relative free energies of these $L$ states each of which has a potential energy of :math:`U(x)`.
+Because the :math:`l` th state is constrainted in the dihedral range :math:`[\theta_{l-1}, \theta_l]`,
+we need to add a biasing potential :math:`R_l(\theta)` to enforce the constraint.
+The value of the biasing potential :math:`R_l(\theta) = R_l(\theta(x))` is 0 when :math:`\theta \in [\theta_{l-1}, \theta_l]`, infinity otherwise.
 
 
 .. code-block:: python
+		
+   ## compute the reduced energy matrix B
+   L = 25
+   theta_PMF = np.linspace(-math.pi, math.pi, L, endpoint = False)
+   width = 2*math.pi / L
+   B = np.zeros((L, N))
    
-   M_PMF = 25
-   theta_PMF = np.linspace(-math.pi, math.pi, M_PMF, endpoint = False)
-   width = 2*math.pi / M_PMF
-   reduced_energy_PMF = np.zeros((M_PMF, N))
-   
-   for i in range(M_PMF):
+   for i in range(L):
        theta_center = theta_PMF[i]
        theta_low = theta_center - 0.5*width
        theta_high = theta_center + 0.5*width
@@ -259,13 +307,20 @@ Here we use the Python package mdtraj to compute dihedrals.
                     ((thetas + 2*math.pi > theta_low) & (thetas + 2*math.pi <= theta_high)) | \
                     ((thetas - 2*math.pi > theta_low) & (thetas - 2*math.pi <= theta_high))
    
-       reduced_energy_PMF[i, ~indicator] = np.inf
+       B[i, ~indicator] = np.inf
    
-   PMF, _ = fastmbar.calculate_free_energies_of_perturbed_states(reduced_energy_PMF)
+   ## compute PMF using the energy matrix B
+   PMF, _ = fastmbar.calculate_free_energies_of_perturbed_states(B)
    
+   ## plot the PMF
    fig = plt.figure(0)
    fig.clf()
-   plt.plot(theta_PMF, PMF, '-o')
+   plt.plot(theta_PMF*180/math.pi, PMF, '-o')
+   plt.xlim(-180, 180)
+   plt.xlabel("dihedral")
+   plt.ylabel("reduced free energy")
    plt.savefig("./output/PMF_fast_mbar.pdf")
 
-
+   
+.. image:: ../../examples/butane/data/PMF.png
+	   
