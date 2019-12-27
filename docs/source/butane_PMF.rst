@@ -12,7 +12,9 @@ To run this example in your local computer, you need to clone/download the git r
 `FastMBAR <https://github.com/xqding/FastMBAR>`_ onto your computer.
 After downloading the `FastMBAR`_ repository, change current working directory to
 ``FastMBAR/examples/butane`` before starting to run the following script inside
-the ``Python`` interpreter.
+the ``Python`` interpreter. (This example is also avaible in a Jupyter Notebook:
+``FastMBAR/examples/butane/script/main.ipynb``. You can run this example interactively
+using the Jupyter notebook.)
 
 .. code-block:: python
 		
@@ -321,6 +323,8 @@ The value of the biasing potential :math:`R_l(\theta) = R_l(\theta(x))` is 0 whe
    plt.ylabel("reduced free energy")
    plt.savefig("./output/PMF_fast_mbar.pdf")
 
-   
+
+The PMF saved in the file ``./output/PMF_fast_mbar.pdf`` should be like the following PMF:
+
 .. image:: ../../examples/butane/data/PMF.png
 	   
