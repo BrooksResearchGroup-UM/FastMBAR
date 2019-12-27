@@ -67,7 +67,7 @@ Then a harmonic biasing potential for butane dihedral (3-6-9-13) is added to the
 system so that we can use the biasing potential in the following umbrella sampling.
 Adding a biasing potential to a system is very easy in OpenMM. 
 We don't have to change any source code of OpenMM. All we need to do is to tell
-OpenMM the formula of the biasing potential and degree of freedome we want to
+OpenMM the formula of the biasing potential and degree of freedom we want to
 add the biasing potential to.
 
 .. code-block:: python
@@ -121,7 +121,7 @@ In order to run simulations in OpenMM, we need to construct an OpenMM context,
 which consists of a system, an integrator and a platform.
 The system is just the butane system we have constructed above.
 The integrator specifies what kind integration method we should use.
-Here, we will use Langevin dynamics for NVP ensemble simulation,
+Here, we will use Langevin dynamics for NVT ensemble simulation,
 which corresponds to the OpenMM.LangevinIntegrator.
 The platform specifies what kind of hardware we will run simulation on.
 Here, we choose to use CPUs because the size of the system is quite small.
