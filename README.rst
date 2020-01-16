@@ -13,4 +13,4 @@ temperature/Hamiltonian replica exchange simulations to calculate relative free 
 
 `FastMBAR` is a solver written in Python to solve large scale MBAR/UWHAM equations.
 It can use both CPUs and GPUs.
-To learn more about `FastMBAR`, please read the documentations at 
+To learn more about `FastMBAR`, please read the documentations at https://fastmbar.readthedocs.io
