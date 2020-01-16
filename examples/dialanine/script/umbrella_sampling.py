@@ -12,6 +12,7 @@ import simtk.unit as unit
 import math
 import os
 import numpy as np
+from tqdm import tqdm
 from sys import exit
 
 ## read the OpenMM system of dialanine
@@ -38,7 +39,7 @@ context.setParameter("k_psi", k_psi)
 context.setParameter("k_phi", k_phi)
 
 ## equilibrium value for both psi and phi in biasing potentials
-M = 25
+M = 15
 psi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 phi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 
@@ -69,51 +70,8 @@ for idx in range(M**2):
     file_handle = open(f"./output/traj/traj_psi_{psi_index}_phi_{phi_index}.dcd", 'bw')
     dcd_file = omm_app.dcdfile.DCDFile(file_handle, psf.topology, dt = stepsize)
     for i in tqdm(range(1000)):
-        integrator.step(100)
+        integrator.step(10)
         state = context.getState(getPositions = True)
         positions = state.getPositions()
         dcd_file.writeModel(positions)    
     file_handle.close()
-
-exit()
-
-
-
-context = omm.Context(system, integrator, platform)
-pdb = omm_app.PDBFile("./output/dialanine.pdb")
-context.setPositions(pdb.positions)
-
-## set equilibrium theta for biasing potential
-context.setParameter("theta1", theta1[theta1_index])
-context.setParameter("theta2", theta2[theta2_index])
-K = 100
-context.setParameter("k1", K)
-context.setParameter("k2", K)
-
-## minimize
-state = context.getState(getEnergy = True)
-energy = state.getPotentialEnergy()
-print(energy)
-for i in range(50):
-    omm.LocalEnergyMinimizer_minimize(context, 1, 20)
-    state = context.getState(getEnergy = True)
-    energy = state.getPotentialEnergy()
-    print(energy)
-    
-## initial equilibrium
-integrator.step(5000)
-
-psf = omm_app.CharmmPsfFile("./output/dialanine.psf")
-if not os.path.exists(f"./output/traj_K_{K}"):
-    os.mkdir(f"./output/traj_K_{K}")    
-file_handle = open(f"./output/traj_K_{K}/traj_{job_index}.dcd", 'bw')
-dcd_file = omm_app.dcdfile.DCDFile(file_handle, psf.topology, dt = stepsize)
-
-for i in range(5000):
-    print(i)
-    integrator.step(1000)
-    state = context.getState(getPositions = True)
-    positions = state.getPositions()
-    dcd_file.writeModel(positions)
-    
-file_handle.close()
