@@ -1,0 +1,21 @@
+* TITLE
+* Created by Xinqiang Ding (xqding_at_umich.edu)
+* at 2016/04/18 03:41:02
+*
+
+read rtf card name "./data/top_all36_prot.rtf"
+read param card name "./data/par_all36_prot.prm"
+
+read sequ ala 1
+gene SEG first ACED last CT3 setup angle dihe
+ic param all
+ic print
+ic seed bynum 9 bynum 15 bynum 16
+ic build
+ic print
+mini sd nstep 2000
+write coor pdb select segid SEG end name "./output/dialanine.pdb"
+write coor card select segid SEG end name "./output/dialanine.coor"
+write psf card name "./output/dialanine.psf"
+
+stop
