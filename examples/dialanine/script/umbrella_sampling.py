@@ -32,7 +32,7 @@ stepsize = 1 * unit.femtoseconds
 integrator = omm.LangevinIntegrator(T, fricCoef, stepsize)
 context = omm.Context(system, integrator, platform)
 
-## set equilibrium theta0 for the biasing potential
+## set force constant for the biasing potential
 k_psi = 100
 k_phi = 100
 context.setParameter("k_psi", k_psi)

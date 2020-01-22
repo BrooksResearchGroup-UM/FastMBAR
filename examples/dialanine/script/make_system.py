@@ -26,23 +26,23 @@ system = psf.createSystem(charmm_toppar, nonbondedMethod = omm_app.NoCutoff)
 
 ## add harmonic biasing potentials on two dihedrals of dialanine (psi, phi) in the OpenMM system
 ## for dihedral psi
-bias_torsion_1 = omm.CustomTorsionForce("0.5*k_psi*dtheta^2; dtheta = min(tmp, 2*pi-tmp); tmp = abs(theta - psi)")
-bias_torsion_1.addGlobalParameter("pi", math.pi)
-bias_torsion_1.addGlobalParameter("k_psi", 1.0)
-bias_torsion_1.addGlobalParameter("psi", 0.0)
+bias_torsion_psi = omm.CustomTorsionForce("0.5*k_psi*dtheta^2; dtheta = min(tmp, 2*pi-tmp); tmp = abs(theta - psi)")
+bias_torsion_psi.addGlobalParameter("pi", math.pi)
+bias_torsion_psi.addGlobalParameter("k_psi", 1.0)
+bias_torsion_psi.addGlobalParameter("psi", 0.0)
 ## 4, 6, 8, 14 are indices of the atoms of the torsion psi
-bias_torsion_1.addTorsion(4, 6, 8, 14)
+bias_torsion_psi.addTorsion(4, 6, 8, 14)
 
 ## for dihedral phi
-bias_torsion_2 = omm.CustomTorsionForce("0.5*k_phi*dtheta^2; dtheta = min(tmp, 2*pi-tmp); tmp = abs(theta - phi)")
-bias_torsion_2.addGlobalParameter("pi", math.pi)
-bias_torsion_2.addGlobalParameter("k_phi", 1.0)
-bias_torsion_2.addGlobalParameter("phi", 0.0)
+bias_torsion_phi = omm.CustomTorsionForce("0.5*k_phi*dtheta^2; dtheta = min(tmp, 2*pi-tmp); tmp = abs(theta - phi)")
+bias_torsion_phi.addGlobalParameter("pi", math.pi)
+bias_torsion_phi.addGlobalParameter("k_phi", 1.0)
+bias_torsion_phi.addGlobalParameter("phi", 0.0)
 ## 6, 8, 14, 16 are indices of the atoms of the torsion phi
-bias_torsion_2.addTorsion(6, 8, 14, 16)
+bias_torsion_phi.addTorsion(6, 8, 14, 16)
 
-system.addForce(bias_torsion_1)
-system.addForce(bias_torsion_2)
+system.addForce(bias_torsion_psi)
+system.addForce(bias_torsion_phi)
 
 ## save the OpenMM system of dialanine
 xml = omm.XmlSerializer.serialize(system)
