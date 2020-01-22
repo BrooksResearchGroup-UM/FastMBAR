@@ -15,7 +15,7 @@ import pickle
 topology = mdtraj.load_psf("./output/dialanine.psf")
 K = 100
 
-M = 15
+M = 25
 psi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 phi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 
@@ -24,8 +24,8 @@ phis = []
 for psi_index in range(M):
     for phi_index in range(M):
         traj = mdtraj.load_dcd(f"./output/traj/traj_psi_{psi_index}_phi_{phi_index}.dcd", topology)
-        psis.append(mdtraj.compute_dihedrals(traj, [[4, 6, 9, 14]]))
-        phis.append(mdtraj.compute_dihedrals(traj, [[6, 9, 14, 16]]))
+        psis.append(mdtraj.compute_dihedrals(traj, [[4, 6, 8, 14]]))
+        phis.append(mdtraj.compute_dihedrals(traj, [[6, 8, 14, 16]]))
 
 K = 100
 T = 298.15 * unit.kelvin
@@ -56,7 +56,7 @@ for index in range(M**2):
     
     energy_matrix[index, :] = 0.5*K*(psi_diff**2 + phi_diff**2)/kbT
     
-M_PMF = 15
+M_PMF = 25
 psi_PMF = np.linspace(-math.pi, math.pi, M_PMF, endpoint = False)
 phi_PMF = np.linspace(-math.pi, math.pi, M_PMF, endpoint = False)
 width = 2*math.pi / M_PMF
@@ -89,7 +89,7 @@ for index in range(M_PMF**2):
     
 #energy_matrix = np.vstack([energy_matrix, energy_PMF])
 num_conf_all = np.array([n for i in range(M**2)])
-fastmbar = FastMBAR(energy = energy_matrix, num_conf = num_conf_all, cuda=False, verbose = True)
+fastmbar = FastMBAR(energy = energy_matrix, num_conf = num_conf_all, cuda = True, verbose = True)
 PMF, _ = fastmbar.calculate_free_energies_of_perturbed_states(energy_PMF)
 
 with open("./output/PMF_fast_mbar.pkl", 'wb') as file_handle:
@@ -97,12 +97,6 @@ with open("./output/PMF_fast_mbar.pkl", 'wb') as file_handle:
 
 fig = plt.figure(0)
 fig.clf()
-plt.imshow(np.flipud(PMF.reshape((M_PMF, M_PMF))), extent = (-180, 180, -180, 180))
+plt.imshow(np.flipud(PMF.reshape((M_PMF, M_PMF)).T), extent = (-180, 180, -180, 180))
 plt.colorbar()
 plt.savefig("./output/PMF_fast_mbar.pdf")
-
-# fig = plt.figure(0)
-# fig.clf()
-# plt.contour(theta1_PMF, theta2_PMF, PMF.reshape((M_PMF, M_PMF)))
-# plt.colorbar()
-# plt.savefig("./output/PMF_contour.pdf")
