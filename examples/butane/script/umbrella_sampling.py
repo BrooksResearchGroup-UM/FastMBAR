@@ -37,7 +37,7 @@ K = 100
 context.setParameter("K", K)
 
 ## M centers of dihedral windows are used in umbrella sampling
-M = 20
+M = 25
 theta0 = np.linspace(-math.pi, math.pi, M, endpoint = False)
 np.savetxt("./output/theta0.csv", theta0, delimiter = ",")
 

@@ -39,7 +39,7 @@ context.setParameter("k_psi", k_psi)
 context.setParameter("k_phi", k_phi)
 
 ## equilibrium value for both psi and phi in biasing potentials
-M = 15
+M = 25
 psi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 phi = np.linspace(-math.pi, math.pi, M, endpoint = False)
 
@@ -69,8 +69,8 @@ for idx in range(M**2):
     ## sampling production. trajectories are saved in dcd files
     file_handle = open(f"./output/traj/traj_psi_{psi_index}_phi_{phi_index}.dcd", 'bw')
     dcd_file = omm_app.dcdfile.DCDFile(file_handle, psf.topology, dt = stepsize)
-    for i in tqdm(range(1000)):
-        integrator.step(10)
+    for i in tqdm(range(500)):
+        integrator.step(200)
         state = context.getState(getPositions = True)
         positions = state.getPositions()
         dcd_file.writeModel(positions)    
