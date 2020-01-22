@@ -82,8 +82,8 @@ integrator.step(5000)
 ## sampling production. trajectories are saved in dcd files
 file_handle = open(f"./output/traj/traj_psi_{psi_index}_phi_{phi_index}.dcd", 'bw')
 dcd_file = omm_app.dcdfile.DCDFile(file_handle, psf.topology, dt = stepsize)
-for i in tqdm(range(200)):
-    integrator.step(200)
+for i in tqdm(range(100)):
+    integrator.step(100)
     state = context.getState(getPositions = True)
     positions = state.getPositions()
     dcd_file.writeModel(positions)    
