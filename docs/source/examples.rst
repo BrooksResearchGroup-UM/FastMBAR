@@ -64,6 +64,6 @@ Examples
    :maxdepth: 1
    
    butane_PMF
-   umbrella_sampling_2D
+   dialanine_PMF
 
    
