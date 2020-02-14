@@ -109,8 +109,9 @@ class FastMBAR():
             ## batch size for seperating conformations
             self.conf_batch_size = int(self.total_GPU_memory/20/self.energy.shape[0]/self.energy.itemsize)
             self.conf_batch_size = min(1024, self.conf_batch_size)
-            self.conf_num_batches = torch.sum(self.num_conf_cuda) / self.conf_batch_size
-            self.conf_num_batches = int(self.conf_num_batches.item()) + 1
+            self.conf_num_batches = int(torch.sum(self.num_conf_cuda)) // self.conf_batch_size
+            if torch.sum(self.num_conf_cuda) % self.conf_batch_size != 0:
+                self.conf_num_batches = self.conf_num_batches + 1
 
         ## set self._solve_mbar_equation to specific function based on settings
         if self.cuda and not self.cuda_batch_mode:
@@ -500,7 +501,9 @@ class FastMBAR():
 
         ## batch size for seperating states
         states_batch_size = 16
-        states_num_batches = energy_perturbed.shape[0]//states_batch_size + 1
+        states_num_batches = energy_perturbed.shape[0]//states_batch_size
+        if energy_perturbed.shape[0] % states_batch_size != 0:
+            states_num_batches = states_num_batches + 1
 
         for idx_batch in range(states_num_batches):
             energy_perturbed_batch = torch.from_numpy(energy_perturbed[idx_batch*states_batch_size:(idx_batch+1)*states_batch_size,:]).cuda()
