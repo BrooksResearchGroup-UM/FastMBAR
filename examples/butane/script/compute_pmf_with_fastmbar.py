@@ -9,7 +9,7 @@ from FastMBAR import *
 from sys import exit
 import pickle
 
-M = 20
+M = 30
 thetas = []
 num_conf = []
 for theta0_index in range(M):
@@ -21,7 +21,7 @@ num_conf = np.array(num_conf).astype(np.float64)
 N = len(thetas)
 
 reduced_energy_matrix = np.zeros((M, N))
-K = 100
+K = 50
 T = 298.15 * unit.kelvin
 kbT = unit.BOLTZMANN_CONSTANT_kB * 298.15 * unit.kelvin * unit.AVOGADRO_CONSTANT_NA
 kbT = kbT.value_in_unit(unit.kilojoule_per_mole)

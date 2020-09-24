@@ -25,7 +25,7 @@ psf = omm_app.CharmmPsfFile("./data/butane.psf")
 pdb = omm_app.PDBFile('./data/butane.pdb')
     
 ## setup an OpenMM context
-platform = omm.Platform.getPlatformByName('CPU')
+platform = omm.Platform.getPlatformByName('Reference')
 T = 298.15 * unit.kelvin
 fricCoef = 10/unit.picoseconds
 stepsize = 1 * unit.femtoseconds
@@ -33,11 +33,11 @@ integrator = omm.LangevinIntegrator(T, fricCoef, stepsize)
 context = omm.Context(system, integrator, platform)
 
 ## set equilibrium theta0 for the biasing potential
-K = 100
+K = 50
 context.setParameter("K", K)
 
 ## M centers of dihedral windows are used in umbrella sampling
-M = 25
+M = 30
 theta0 = np.linspace(-math.pi, math.pi, M, endpoint = False)
 np.savetxt("./output/theta0.csv", theta0, delimiter = ",")
 
