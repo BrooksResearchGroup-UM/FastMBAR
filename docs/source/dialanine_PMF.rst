@@ -210,6 +210,7 @@ After initial equilibration, configurations are sampled and saved.
 For configurations in trajectories sampled using umbrella sampling, we compute the two alanine dihedral :math:`\psi` and :math:`\phi` and
 save them in csv files. The dihedral :math:`\psi` is between four atoms with indices of 4, 6, 8, and 14. The dihedral :math:`\phi` is between four atoms with indices of 6, 8, 14, 16.
 Here we use the Python package mdtraj to compute dihedrals.
+
 .. code-block:: python
 		
    topology = mdtraj.load_psf("./output/dialanine.psf")

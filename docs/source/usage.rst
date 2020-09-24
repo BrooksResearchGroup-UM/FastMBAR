@@ -57,7 +57,7 @@ free energy calculation** and calculating potential of mean force (PMF) with
 -----------------------
 The following two inputs are required to initialize FastMBAR: a matrix :math:`A` of reduced
 potential energies in sampled states and a vector :math:`v` of numbers of sampled
-conformations, both of which can be calculated based on sampling.
+conformations from each state, both of which can be calculated based on sampling.
 
 If the sampling is conducted as described above, the matrix of reduced potential
 energies in sampled states should be calculated as the matrix :math:`A_{M,N}` as shown in the
@@ -75,7 +75,7 @@ These :math:`M` reduced potential energies constitue one column of the matrix
 :math:`A`.
 The vector :math:`v` is constructed as :math:`v = (N_1, N_2, ..., N_M)`.
 
-In FastMBAR, both the matrix :math:`A` and the vector :math:`v` have to presented be
+In FastMBAR, both the matrix :math:`A` and the vector :math:`v` have to be
 `numpy arrays <https://numpy.org/devdocs/user/quickstart.html>`_: :math:`A` is a
 two dimensional numpy array and :math:`v` is a one dimensional numpy array.
 With the matrix :math:`A` and the vector :math:`v`, we can create a FastMBAR object
@@ -92,7 +92,7 @@ using the following `Python` command:
    
    # construct and initialize a FastMBAR object with the energy matrix A and the vector v
    # set cuda = True in the following command if you want to run the calcuation on GPUs
-   fastmbar = FastMBAR(energy = A, num_conf = v, cuda=False) 
+   fastmbar = FastMBAR(energy = A, num_conf = v, cuda=False, verbose = True) 
 
    # after initialization, the relative free energies of the M states is stored in fastmbar.F
    print(fastmbar.F)
@@ -111,7 +111,7 @@ the following command.
 
    # construct and initialize a FastMBAR object with the energy matrix A and the vector v
    # set cuda = True in the following command if you want to run the calcuation on GPUs
-   fastmbar = FastMBAR(energy = A, num_conf = v, cuda=False, bootstrap = True)
+   fastmbar = FastMBAR(energy = A, num_conf = v, cuda=False, bootstrap = True, verbose = True)
 
    # after initialization, the relative free energies of the M states and standard deviations
    # are stored in fastmbar.F and fastmbar.F_std, respectively.

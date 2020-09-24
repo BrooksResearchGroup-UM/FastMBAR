@@ -19,6 +19,7 @@ Why FastMBAR?
 -------------
 FastMBAR can use both CPUs and GPUs.
 It is extramely fast for solving large scale MBAR/WHAM equations when it uses GPUs.
+Moreover, it is not limited by the memory size of a GPU.
 Therefore, you will find it especially useful when you want to calculate relative
 free energies for a large number of states, such as in calculating multiple
 dimensional PMF in umbrella sampling and calculating free energies for
