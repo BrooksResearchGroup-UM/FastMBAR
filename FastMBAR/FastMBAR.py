@@ -13,7 +13,7 @@ class FastMBAR():
     in the constructor. Therefore, the relative free energies of states
     used in the energy matrix is calculated in the constructor. The, the 
     FastMBAR class method calculate_free_energies_for_perturbed_states 
-    can be used to calcualted the relative free energies of perturbed states
+    can be used to calcualted the relative free energies of perturbed states.
     """    
     def __init__(self, energy, num_conf,
                  cuda = False, cuda_batch_mode = None,
@@ -72,7 +72,8 @@ class FastMBAR():
                has to be strictly greater than zero. You can fix this 
                problem by removing states from which no conformations
                are sampled.'''
-        
+
+        #: energy matrix
         self.energy = energy.astype(np.float64)
         self.num_conf = num_conf.astype(energy.dtype)
         self.num_states = energy.shape[0]
@@ -154,13 +155,13 @@ class FastMBAR():
         self._solve()
         
     def _calculate_loss_and_grad_cpu(self, bias_energy):
-        """ calculate the loss and gradient for the FastMBAR objective function using CPUs.
+        """ calculate the loss and gradient for the FastMBAR objective function using CPUs
 
         Parameters
         ----------
-        bias_energy : 1-D ndarray with size of (M,)
+        bias_energy: 1-D ndarray with size of (M,)
         
-        Returns:
+        Returns
         -------
         loss: the value of FastMBAR objective function
         grad: a 1-D array with a size of (M,).    
@@ -194,6 +195,7 @@ class FastMBAR():
         verbose: bool, optional
             if verbose is true, the detailed information of running
             LBFGS optimization is printed.
+
         Returns
         -------
         F: 1-D float array with size of (M,)
@@ -268,7 +270,7 @@ class FastMBAR():
         ----------
         bias_energy : 1-D ndarray with size of (M,)
         
-        Returns:
+        Returns
         -------
         loss: the value of FastMBAR objective function
         grad: a 1-D array with a size of (M,).    
@@ -306,6 +308,7 @@ class FastMBAR():
         verbose: bool, optional
             if verbose is true, the detailed information of running
             LBFGS optimization is printed.
+
         Returns
         -------
         F: 1-D float array with size of (M,)
@@ -348,6 +351,7 @@ class FastMBAR():
             each row of the energy_perturbed matrix represents a state and 
             the value energy_perturbed[l,n] represents the reduced energy
             of the n'th conformation in the l'th perturbed state.
+
         Returns
         -------
         F_mean: 1-D float ndarray with a size of (L,)
@@ -388,7 +392,7 @@ class FastMBAR():
         ----------
         bias_energy : 1-D ndarray with size of (M,)
         
-        Returns:
+        Returns
         -------
         loss: the value of FastMBAR objective function
         grad: a 1-D array with a size of (M,).    
