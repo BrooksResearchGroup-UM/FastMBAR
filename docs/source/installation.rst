@@ -19,7 +19,7 @@ https://www.anaconda.com/distribution/.
   
   .. code-block:: bash
 
-     pip install FastMBAR
+     pip install -U FastMBAR
 
 * **Install FastMBAR with CUDA support**
 
@@ -55,7 +55,7 @@ https://www.anaconda.com/distribution/.
 
     .. code-block:: bash
 
-       pip install FastMBAR      	  
+       pip install -U FastMBAR      	  
 
 3. Test the Installation of FastMBAR
 ------------------------------------
