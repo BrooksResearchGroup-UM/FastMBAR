@@ -15,7 +15,8 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../../FastMBAR'))
+sys.path.insert(0, os.path.abspath('../FastMBAR'))
+
 #sys.path.insert(0, "/Users/dingxq/Google Drive/ProjectsOnGitHub/FastMBAR")
 
 # -- Project information -----------------------------------------------------
