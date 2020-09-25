@@ -4,4 +4,4 @@ FastMBAR is an implementation of the multistate Bennette acceprance ratio
 pymbar [3], FastMBAR is faster when calculating free energyies for a large
  num of states with a large num of conformations.
 """
-from FastMBAR.FastMBAR import FastMBAR
+from FastMBAR.fastmbar import FastMBAR
