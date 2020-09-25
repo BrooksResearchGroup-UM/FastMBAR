@@ -8,7 +8,6 @@ FastMBAR API
 
    .. rubric:: Attributes
 
-   .. autoattribute:: FastMBAR.FastMBAR.energy
 
 	     
 		    
