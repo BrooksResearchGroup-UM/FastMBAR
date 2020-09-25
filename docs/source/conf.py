@@ -91,7 +91,11 @@ html_theme = 'alabaster'
 #
 html_theme_options = {
     'logo': 'logo.png',
-    'logo_name': False
+    'logo_name': False,
+    'github_button': False,
+    'github_user': 'xqding',
+    'github_repo': 'FastMBAR',
+    'github_banner': True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
