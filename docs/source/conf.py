@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = 'FastMBAR'
-copyright = '2019, Xinqiang Ding'
-author = 'Xinqiang Ding'
+copyright = '2019 Ding, Xinqiang, Jonah Z. Vilseck, and Charles L. Brooks III.'
+author = 'Xinqiang Ding, '
 
 # The short X.Y version
 version = '0.1.0'
