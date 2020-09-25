@@ -14,7 +14,8 @@ class FastMBAR():
     used in the energy matrix is calculated in the constructor. The, the 
     FastMBAR class method calculate_free_energies_for_perturbed_states 
     can be used to calcualted the relative free energies of perturbed states.
-    """    
+    """
+    
     def __init__(self, energy, num_conf,
                  cuda = False, cuda_batch_mode = None,
                  bootstrap = False, bootstrap_block_size = 3,
@@ -71,13 +72,25 @@ class FastMBAR():
             '''The number of conformations sampled from each state
                has to be strictly greater than zero. You can fix this 
                problem by removing states from which no conformations
-               are sampled.'''
-
-        #: energy matrix
+               are sampled.'''    
+        
+        ##: the energy matrix used to initialize FastMBAR
         self.energy = energy.astype(np.float64)
+
+        ##: the numbers of configurations samples from each of the M thermodynamics state
         self.num_conf = num_conf.astype(energy.dtype)
+
+        ##: the number of sampled thermodynamics states
         self.num_states = energy.shape[0]
+        
         self.tot_num_conf = energy.shape[1]
+        
+        if np.sum(self.num_conf) != self.tot_num_conf:
+            raise ValueError(
+                '''the sum of num_conf has to be the same 
+                   as the number of colunmns in energy matrix'''
+            )
+        
         self.num_conf_ratio = self.num_conf / float(self.tot_num_conf)
                         
         ## moving data to GPU if cuda is used
@@ -136,11 +149,13 @@ class FastMBAR():
             ## they are the variables that need to be optimized
             self.bias_energy = None
 
-            ## result of free energies
+            #: free energies of M thermodynamic states
             self.F = None
-            self.F_std = None
 
-            ## log of the mixed distribution probablity of each conformation
+            #: standard deviation (from bootstraping) of free energies of M thermodynamic states 
+            self.F_std = None            
+
+            #: the logarithm of probablities of each frame in the expanded ensemble comparising the M thermodynamics states.
             self.log_prob_mix = None
 
         else:

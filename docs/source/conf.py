@@ -17,8 +17,6 @@ import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../../'))
 
-#sys.path.insert(0, "/Users/dingxq/Google Drive/ProjectsOnGitHub/FastMBAR")
-
 # -- Project information -----------------------------------------------------
 
 project = 'FastMBAR'
@@ -46,6 +44,11 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon'
 ]
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
