@@ -16,8 +16,10 @@ FastMBAR API
 
 
 .. autoclass:: FastMBAR::FastMBAR
-   :special-members: __init__	       
+   :special-members: __init__
    :members:
+	     
+
 
 
 	     

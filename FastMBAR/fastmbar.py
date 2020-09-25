@@ -603,3 +603,28 @@ class FastMBAR():
             self.F = F
             self.bias_energy = bias_energy
             self.log_prob_mix = log_prob_mix
+
+
+    def calculate_free_energies_of_perturbed_states(self, energy_perturbed):
+        """ calculate free energies for perturbed states.
+
+        Parameters
+        -----------
+        energy_perturbed: 2-D float ndarray with size of (L,N)
+            each row of the energy_perturbed matrix represents a state and 
+            the value energy_perturbed[l,n] represents the reduced energy
+            of the n'th conformation in the l'th perturbed state.
+        Returns
+        -------
+        F_mean: 1-D float ndarray with a size of (L,)
+            the relative free energies of the perturbed states.
+            it is a mean of multiple estimations if bootstrap is used,
+        F_std: 1-D float ndarray with a size of (L,)
+            the standard deviation of the estimated F. it is esimated 
+            using bootstrap. when bootstrap is off, it is None
+        """
+
+        raise ValueError(
+            '''the method calculate_free_energies_of_perturbed_states is 
+               available only after initializing a FastMBAR object.
+            ''')
