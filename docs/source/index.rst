@@ -36,7 +36,7 @@ It just takes a few lines of commands to install and use FastMBAR.
    usage
    API
    examples
-   
+   references
 
    
 .. The multistate Bennett acceptance ratio (MBAR) and
