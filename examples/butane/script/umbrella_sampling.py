@@ -6,9 +6,9 @@ script, we run simulations in each window sequentially, but they can be run in
 parallel you have a computer cluster with multiple nodes.
 """
 
-import simtk.openmm.app  as omm_app
-import simtk.openmm as omm
-import simtk.unit as unit
+import openmm.app  as omm_app
+import openmm as omm
+import openmm.unit as unit
 import math
 import os
 import numpy as np
@@ -29,7 +29,7 @@ platform = omm.Platform.getPlatformByName('Reference')
 T = 298.15 * unit.kelvin
 fricCoef = 10/unit.picoseconds
 stepsize = 1 * unit.femtoseconds
-integrator = omm.LangevinIntegrator(T, fricCoef, stepsize)
+integrator = omm.LangevinMiddleIntegrator(T, fricCoef, stepsize)
 context = omm.Context(system, integrator, platform)
 
 ## set equilibrium theta0 for the biasing potential

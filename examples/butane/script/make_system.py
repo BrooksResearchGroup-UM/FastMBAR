@@ -8,9 +8,9 @@ that we can add biasing potentials to the system in the following umbrella
 sampling.
 '''
 
-import simtk.openmm.app  as omm_app
-import simtk.openmm as omm
-import simtk.unit as unit
+import openmm.app  as omm_app
+import openmm as omm
+import openmm.unit as unit
 import math
 import os
 import numpy as np
