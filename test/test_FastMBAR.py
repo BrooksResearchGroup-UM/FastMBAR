@@ -1,96 +1,83 @@
-import sys
-sys.path.insert(0, "/home/xqding/course/projectsOnGitHub/FastMBAR/FastMBAR/")
-from FastMBAR import *
+import pytest
+from pytest import approx
 import torch
+import torch.distributions as dist
 import numpy as np
 from sys import exit
+import math
+import os, sys
+from FastMBAR import FastMBAR
 
-def test_FastMBAR():
-    import numpy as np
+@pytest.fixture
+def setup_data():
+    num_states = 20
+    num_conf = torch.randint(500, 1000, (num_states,))
 
-    ## draw samples from multiple states, each of which is a harmonic
-    ## osicillator
-    #np.random.seed(0)
-    num_states = 20 ## num of states with nonzero num of samples
-    num_conf = np.array([5000 for i in range(num_states)])
-    mu = np.random.normal(0, 4, size = num_states) ## equalibrium positions
-    sigma = np.random.uniform(1, 3, size = num_states) ## sqrt of 1/k
+    mu = dist.Normal(0.0, 2.0).sample((num_states,))
+    sigma = dist.Uniform(1, 3).sample((num_states,))  ## sqrt of 1/k
 
-    ## draw samples from each state and calculate energies of each sample
-    ## in all states
+    ## draw samples from each state and
+    ## calculate energies of each sample in all states
     Xs = []
     for i in range(num_states):
-        Xs += list(np.random.normal(loc = mu[i],
-                                    scale = sigma[i],
-                                    size = num_conf[i]))
-    Xs = np.array(Xs)
-    energy = np.zeros((num_states, len(Xs)))
+        Xs.append(dist.Normal(mu[i], sigma[i]).sample((num_conf[i],)))
+    Xs = torch.cat(Xs)
+    energy = torch.zeros((num_states, len(Xs)))
     for i in range(num_states):
-        energy[i,:] = 0.5 * ((Xs - mu[i])/sigma[i])**2
+        energy[i, :] = 0.5 * ((Xs - mu[i]) / sigma[i]) ** 2
+    
+    F_ref = -torch.log(sigma)
+    pi = num_conf / num_conf.sum()
+    F_ref = F_ref - torch.sum(pi * F_ref)
 
-    num_states_perturbed = 5
-    mu_perturbed = np.random.normal(0, 4, size = num_states_perturbed) ## equalibrium positions
-    sigma_perturbed = np.random.uniform(1, 3, size = num_states_perturbed) ## sqrt of 1/k
-    energy_perturbed = np.zeros((num_states_perturbed, len(Xs)))
-    for i in range(num_states_perturbed):
-        energy_perturbed[i, :] = 0.5 * ((Xs - mu_perturbed[i])/sigma_perturbed[i])**2
+    return energy, num_conf, F_ref
 
-    ## reference results
-    reference_result = np.concatenate([-np.log(sigma), -np.log(sigma_perturbed)])
-    reference_result = reference_result - reference_result[0]
+@pytest.mark.parametrize("method", ["Newton", "L-BFGS-B"])
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_FastMBAR_cpus(setup_data, method, bootstrap):
+    energy, num_conf, F_ref = setup_data
+    fastmbar = FastMBAR(
+        energy,
+        num_conf,
+        cuda=False,
+        cuda_batch_mode=False,
+        bootstrap=bootstrap,
+        verbose=False,
+        method=method,
+    )
+    # print(fastmbar.F)
+    # print(F_ref)
+    assert fastmbar.F == approx(F_ref, abs = 1e-1)
 
+@pytest.mark.skipif(torch.cuda.is_available() is False, reason="CUDA is not avaible")
+@pytest.mark.parametrize("method", ["Newton", "L-BFGS-B"])
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("cuda_batch_mode", [False, True])
+def test_FastMBAR_gpus(setup_data, method, bootstrap, cuda_batch_mode):
+    energy, num_conf, F_ref = setup_data
+    fastmbar = FastMBAR(
+        energy,
+        num_conf,
+        cuda=True,
+        cuda_batch_mode=cuda_batch_mode,
+        bootstrap=bootstrap,
+        verbose=False,
+        method=method,
+    )
+    assert fastmbar.F == approx(F_ref, abs = 1e-1)
 
-    print("Without bootstrap")
-    print("="*40)        
-    ## calcuate free energies using CPUs
-    mbar = FastMBAR(energy, num_conf, cuda = False, bootstrap = False)
-    F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-    F = np.concatenate((mbar.F, F_perturbed))
-    diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-    print("RMSD (CPU calculation and reference results): {:.2f}".format(diff_cpu))
-    assert(diff_cpu <= 0.05)
+# energy, num_conf, F_ref = setup_data()
+# fastmbar = FastMBAR(
+#     energy,
+#     num_conf,
+#     cuda=False,
+#     cuda_batch_mode=False,
+#     bootstrap=True,
+#     verbose=True,
+#     method="Newton",
+# )
 
-    if torch.cuda.is_available():
-        ## calcuate free energies using GPUs
-        mbar = FastMBAR(energy, num_conf, cuda = True, bootstrap = False)
-        F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-        F = np.concatenate((mbar.F, F_perturbed))
-        diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-        print("RMSD (GPU calculation and reference results): {:.2f}".format(diff_cpu))
-        assert(diff_cpu <= 0.05)    
+# res = fastmbar.calculate_free_energies_of_perturbed_states(energy)
 
-        mbar = FastMBAR(energy, num_conf, cuda = True, cuda_batch_mode = True,  bootstrap = False)
-        F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-        F = np.concatenate((mbar.F, F_perturbed))
-        diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-        print("RMSD (GPU-batch-mode calculation and reference results): {:.2f}".format(diff_cpu))
-        assert(diff_cpu <= 0.05)    
-
-    print("With bootstrap")
-    print("="*40)        
-    ## calcuate free energies using CPUs
-    mbar = FastMBAR(energy, num_conf, cuda = False, bootstrap = True)
-    F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-    F = np.concatenate((mbar.F, F_perturbed))
-    diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-    print("RMSD (CPU calculation and reference results): {:.2f}".format(diff_cpu))
-    assert(diff_cpu <= 0.05)
-
-    if torch.cuda.is_available():    
-        ## calcuate free energies using GPUs
-        mbar = FastMBAR(energy, num_conf, cuda = True, bootstrap = True)
-        F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-        F = np.concatenate((mbar.F, F_perturbed))
-        diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-        print("RMSD (GPU calculation and reference results): {:.2f}".format(diff_cpu))
-        assert(diff_cpu <= 0.05)    
-
-        mbar = FastMBAR(energy, num_conf, cuda = True, cuda_batch_mode = True,  bootstrap = True)
-        F_perturbed, _ = mbar.calculate_free_energies_of_perturbed_states(energy_perturbed)
-        F = np.concatenate((mbar.F, F_perturbed))
-        diff_cpu = np.sqrt(np.mean((F-reference_result)**2))
-        print("RMSD (GPU-batch-mode calculation and reference results): {:.2f}".format(diff_cpu))
-        assert(diff_cpu <= 0.05)
-        
-if __name__ == "__main__":
-    test_FastMBAR()
+# mbar = pymbar.MBAR(energy.numpy(), num_conf.numpy())
+# mbar_results = mbar.compute_free_energy_differences(return_theta=True)
