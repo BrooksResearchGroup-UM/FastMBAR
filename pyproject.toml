@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastmbar"
-version = "1.0.0"
+version = "1.0-rc1"
 authors = [
   { name="Xinqiang Ding", email="Xinqiang.Ding@tufts.edu" }
 ]
 description = "A fast solver for large scale MBAR/UWHAM equations"
 readme = "README.rst"
 license = { file="LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    'numpy>=1.24.0',
+    'numpy>=1.20.0',
     'scipy>=1.11.0',
     'torch>=2.0.0'
 ]
