@@ -397,10 +397,10 @@ class FastMBAR:
 
             F_ext = torch.cat([self._F, F])
             U = torch.cat([self.energy, energy_perturbed], dim=0).t()
-            P = torch.exp(-(U - F_ext + self._log_prob_mix[:, None]))
+            self._P = torch.exp(-(U - F_ext + self._log_prob_mix[:, None]))
 
             W = torch.diag(torch.cat([self.num_conf, self.num_conf.new_zeros(L)]))
-            Q, R = torch.linalg.qr(P)
+            Q, R = torch.linalg.qr(self._P)
             A = torch.eye(self.M + L, device=W.device) - R @ W @ R.T
             F_cov = R.T @ torch.linalg.pinv(A, hermitian=True, rtol=1e-8) @ R
 
