@@ -32,11 +32,11 @@ https://www.anaconda.com/distribution/.
 
   1. Install PyTorch with CUDA support.
 
-     Follow the instructions at `PyTorch <https://pytorch.org/>`_ to 
+     Follow the instructions at `PyTorch`_ to 
      install PyTorch with CUDA support. The specific command you need could
-      depends on your operation system, Python version, and 
-      CUDA version you have on your computers. 
-      You can use the following command in a Terminal to check these version information.
+     depends on your operation system, Python version, and 
+     CUDA version you have on your computers. 
+     You can use the following command in a Terminal to check these version information.
   
      .. code-block:: bash
 		       
@@ -65,7 +65,7 @@ https://www.anaconda.com/distribution/.
      the above command should print ``True`` in the terminal. 
      If not, please go back to step 1 and reinstall PyTorch with CUDA support correctly. 
      For more information on installing PyTorch,
-      please read more detailed instructions on `PyTorch`_.
+     please read more detailed instructions on `PyTorch`_.
 
  3. Install FastMBAR
 
@@ -84,45 +84,57 @@ FastMBAR has been installed successfully.
 
 .. code-block:: bash
 
-   python -m FastMBAR.test_installation
+   pytest -v --pyargs FastMBAR
 
 If FastMBAR has been successfully installed, it will
 output the following information:
 
-  * If FastMBAR is installed with CUDA support, then on a computer with GPUs, the above command will print information similar as the following output::
-     
-     ========================================
-     Start testing FastMBAR:
-     ========================================
+  * If FastMBAR is installed with CUDA support, then on a computer with GPUs, 
+    the above command will print information similar as the following output::
 
-     Without bootstrap
-     ----------------------------------------
-     RMSD (CPU calculation and reference results) < 0.05. PASSED.
-     RMSD (GPU calculation and reference results) < 0.05. PASSED.
-     RMSD (GPU-batch-mode calculation and reference results) < 0.05. PASSED.
+      ========================================================= test session starts ==========================================================
+      platform linux -- Python 3.11.4, pytest-7.4.0, pluggy-1.2.0 -- /home/xqding/apps/miniconda3/envs/test/bin/python3.11
+      cachedir: .pytest_cache
+      rootdir: /home/xqding
+      collected 12 items
 
-     With bootstrap
-     ----------------------------------------
-     RMSD (CPU calculation and reference results) < 0.05. PASSED.
-     RMSD (GPU calculation and reference results) < 0.05. PASSED.
-     RMSD (GPU-batch-mode calculation and reference results) < 0.05. PASSED.
-     ========================================
-     ALL TESTS ARE PASSED.
-         
+      test_FastMBAR.py::test_FastMBAR_cpus[False-Newton] PASSED        [  8%]
+      test_FastMBAR.py::test_FastMBAR_cpus[False-L-BFGS-B] PASSED      [ 16%]
+      test_FastMBAR.py::test_FastMBAR_cpus[True-Newton] PASSED         [ 25%]
+      test_FastMBAR.py::test_FastMBAR_cpus[True-L-BFGS-B] PASSED       [ 33%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-False-Newton] PASSED  [ 41%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-False-L-BFGS-B] PASSED [ 50%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-True-Newton] PASSED   [ 58%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-True-L-BFGS-B] PASSED [ 66%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-False-Newton] PASSED   [ 75%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-False-L-BFGS-B] PASSED [ 83%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-True-Newton] PASSED    [ 91%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-True-L-BFGS-B] PASSED  [100%]
+
+      ==================================================== 12 passed in 111.64s (0:01:51) ====================================================     
+
+
   * If FastMBAR is installed without CUDA support or if FastMBAR is installed with CUDA support but the above command is run on a computer without GPUs, the above command will print information similar as the following output::
      
-     ========================================
-     Start testing FastMBAR:
-     ========================================
+      ========================================================= test session starts ==========================================================
+      platform linux -- Python 3.11.4, pytest-7.4.0, pluggy-1.2.0 -- /home/xqding/apps/miniconda3/envs/test/bin/python3.11
+      cachedir: .pytest_cache
+      rootdir: /home/xqding/test
+      collected 12 items
 
-     Without bootstrap
-     ----------------------------------------
-     RMSD (CPU calculation and reference results) < 0.05. PASSED.
+      test_FastMBAR.py::test_FastMBAR_cpus[False-Newton] PASSED                                                                        [  8%]
+      test_FastMBAR.py::test_FastMBAR_cpus[False-L-BFGS-B] PASSED                                                                      [ 16%]
+      test_FastMBAR.py::test_FastMBAR_cpus[True-Newton] PASSED                                                                         [ 25%]
+      test_FastMBAR.py::test_FastMBAR_cpus[True-L-BFGS-B] PASSED                                                                       [ 33%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-False-Newton] SKIPPED (CUDA is not avaible)                                           [ 41%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-False-L-BFGS-B] SKIPPED (CUDA is not avaible)                                         [ 50%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-True-Newton] SKIPPED (CUDA is not avaible)                                            [ 58%]
+      test_FastMBAR.py::test_FastMBAR_gpus[False-True-L-BFGS-B] SKIPPED (CUDA is not avaible)                                          [ 66%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-False-Newton] SKIPPED (CUDA is not avaible)                                            [ 75%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-False-L-BFGS-B] SKIPPED (CUDA is not avaible)                                          [ 83%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-True-Newton] SKIPPED (CUDA is not avaible)                                             [ 91%]
+      test_FastMBAR.py::test_FastMBAR_gpus[True-True-L-BFGS-B] SKIPPED (CUDA is not avaible)                                           [100%]
 
-     With bootstrap
-     ----------------------------------------
-     RMSD (CPU calculation and reference results) < 0.05. PASSED.
-     ========================================
-     ALL TESTS ARE PASSED.
+      ==================================================== 4 passed, 8 skipped in 29.67s =====================================================
 
      
