@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fastmbar"
+name = "FastMBAR"
 version = "1.0-rc1"
 authors = [
   { name="Xinqiang Ding", email="Xinqiang.Ding@tufts.edu" }
@@ -21,7 +21,8 @@ classifiers = [
 dependencies = [
     'numpy>=1.20.0',
     'scipy>=1.11.0',
-    'torch>=2.0.0'
+    'torch>=2.0.0',
+    'pytest>=7.4.0'
 ]
 
 [project.urls]
