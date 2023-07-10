@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastmbar"
+version = "1.0.0"
+authors = [
+  { name="Xinqiang Ding", email="Xinqiang.Ding@tufts.edu" }
+]
+description = "A fast solver for large scale MBAR/UWHAM equations"
+readme = "README.rst"
+license = { file="LICENSE" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    'numpy>=1.24.0',
+    'scipy>=1.11.0',
+    'torch>=2.0.0'
+]
+
+[project.urls]
+"Homepage" = "https://fastmbar.readthedocs.io"
+"Bug Tracker" = "https://github.com/BrooksResearchGroup-UM/FastMBAR/issues"
+
+[tool.hatch.build]
+exclude = [
+  "examples/*",
+]

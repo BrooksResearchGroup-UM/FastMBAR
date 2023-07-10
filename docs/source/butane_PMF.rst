@@ -1,20 +1,18 @@
-Example 1. Compute PMF of butane dihedral with umbrella sampling and FastMBAR
+Example 1. Compute the PMF of a dihedral for butane.
 ==============================================================================
 
-This example includes a step-by-step discription on computing the PMF of
+This example includes a step-by-step description on computing the PMF of
 butane dihedral between its four carbon atoms with umbrella sampling and FastMBAR.
-Umbrella sampling is used to exhaustively sample relavant butane configurations
+Umbrella sampling is used to exhaustively sample relevant butane configurations
 that are centered around multiple dihedral values.
-FastMBAR is used here to compute the PMF by reweighting the configurations
+FastMBAR is used here to compute the PMF by reweighing the configurations
 sampled from umbrella sampling.
 
 To run this example in your local computer, you need to clone/download the git repository
-`FastMBAR <https://github.com/xqding/FastMBAR>`_ onto your computer.
+`FastMBAR <https://github.com/BrooksResearchGroup-UM/FastMBAR>`_ onto your computer.
 After downloading the `FastMBAR`_ repository, change current working directory to
 ``FastMBAR/examples/butane`` before starting to run the following script inside
-the ``Python`` interpreter. (This example is also avaible in a Jupyter Notebook:
-``FastMBAR/examples/butane/script/main.ipynb``. You can run this example interactively
-using the Jupyter notebook.)
+the ``Python`` interpreter.
 
 .. code-block:: python
 		
@@ -22,9 +20,9 @@ using the Jupyter notebook.)
    import os, math, sys
    import numpy as np
    import matplotlib.pyplot as plt
-   import simtk.openmm.app  as omm_app
-   import simtk.openmm as omm
-   import simtk.unit as unit
+   import openmm.app  as omm_app
+   import openmm as omm
+   import openmm.unit as unit
    from tqdm import tqdm
    import mdtraj
    from FastMBAR import *
@@ -35,22 +33,22 @@ using the Jupyter notebook.)
 Because we are using OpenMM as our MD engine, we need to setup the
 MD molecular system in the format required by OpenMM. The format/object
 used by OpenMM for a molecular system happens to be a class called
-`System <http://docs.openmm.org/latest/api-python/generated/simtk.openmm.openmm.System.html#simtk.openmm.openmm.System>`_.
+`System <http://docs.openmm.org/latest/api-python/generated/openmm.openmm.System.html#openmm.openmm.System>`_.
 Therefore, we will prepare our MD molecular system as an OpenMM System.
 When we prepare the OpenMM system, we add a
-`CustomTorsionForce <http://docs.openmm.org/latest/api-python/generated/simtk.openmm.openmm.CustomTorsionForce.html#simtk.openmm.openmm.CustomTorsionForce>`_
+`CustomTorsionForce <http://docs.openmm.org/latest/api-python/generated/openmm.openmm.CustomTorsionForce.html#openmm.openmm.CustomTorsionForce>`_
 so that we can add biasing potentials to the system in the following umbrella
 sampling.
 
 Read psf and pdb files of butane: butane.psf and butane.pdb.
-The psf file, butane.psf, contains topolgy of butane and it is
-the topolgy file format used by CHARMM.
+The psf file, butane.psf, contains topology of butane and it is
+the topology file format used by CHARMM.
 The psf file, butane.psf, used here is generated using CHARMM.
-In your study, you usually alreay have a pdb file of your system. 
+In your study, you usually already have a pdb file of your system. 
 You can generate the topology file of your system using various MD
 softwares such as CHARMM, Gromacs and Amber among others.
 Just note that different softwares use different format for topology files and OpenMM has 
-several parser for topology files with different foramt.
+several parser for topology files with different format.
 
 .. code-block:: python
 		
@@ -74,7 +72,7 @@ add the biasing potential to.
 
 .. code-block:: python
 
-   ## creay an OpenMM system
+   ## create an OpenMM system
    system = psf.createSystem(params, nonbondedMethod=omm_app.NoCutoff)
 
    ## add a harmonic biasing potential on butane dihedral to the OpenMM system
@@ -87,10 +85,10 @@ add the biasing potential to.
    bias_torsion.addTorsion(3, 6, 9, 13)
    system.addForce(bias_torsion)
 
-After constructing the OpenMM system of butane, we can save it in an XML formated text file,
+After constructing the OpenMM system of butane, we can save it in an XML formatted text file,
 which can be used later for simulations. Therefore, if we want to use the same system in
 another script, we can just read the text file in an OpenMM system instead of constructing it again.
-You can even open the XML formated text file using a text editor and see what information
+You can even open the XML formatted text file using a text editor and see what information
 about the system is included in the XML file.
 
 .. code-block:: python
@@ -104,7 +102,7 @@ about the system is included in the XML file.
 
 We run umbrella sampling for the butane dihedral (atom indices: 3-6-9-13).
 The dihedral is split into multiple windows and in each window, the dihedral
-is restrainted around a center using a harmonic biasing potential. In this
+is restrained around a center using a harmonic biasing potential. In this
 script, we run simulations in each window sequentially, but they can be run in
 parallel if you have a computer cluster with multiple nodes.       
 
@@ -124,7 +122,7 @@ which consists of a system, an integrator and a platform.
 The system is just the butane system we have constructed above.
 The integrator specifies what kind integration method we should use.
 Here, we will use Langevin dynamics for NVT ensemble simulation,
-which corresponds to the OpenMM.LangevinIntegrator.
+which corresponds to the OpenMM.LangevinMiddleIntegrator.
 The platform specifies what kind of hardware we will run simulation on.
 Here, we choose to use CPUs because the size of the system is quite small.
 
@@ -135,11 +133,11 @@ Here, we choose to use CPUs because the size of the system is quite small.
    ## platform
    platform = omm.Platform.getPlatformByName('CPU')
 
-   ## intergrator
+   ## integrator
    T = 298.15 * unit.kelvin  ## temperature
    fricCoef = 10/unit.picoseconds ## friction coefficient 
    stepsize = 1 * unit.femtoseconds ## integration step size
-   integrator = omm.LangevinIntegrator(T, fricCoef, stepsize)
+   integrator = omm.LangevinMiddleIntegrator(T, fricCoef, stepsize)
 
    ## construct an OpenMM context
    context = omm.Context(system, integrator, platform)
@@ -177,7 +175,7 @@ After initial equilibration, configurations are sampled and saved.
        state = context.getState(getEnergy = True)
        energy = state.getPotentialEnergy()
        for i in range(50):
-           omm.LocalEnergyMinimizer_minimize(context, 1, 20)
+           omm.LocalEnergyMinimizer.minimize(context, 1, 20)
            state = context.getState(getEnergy = True)
            energy = state.getPotentialEnergy()
    
@@ -187,7 +185,7 @@ After initial equilibration, configurations are sampled and saved.
        ## sampling production. trajectories are saved in dcd files
        file_handle = open(f"./output/traj/traj_{theta0_index}.dcd", 'bw')
        dcd_file = omm_app.dcdfile.DCDFile(file_handle, psf.topology, dt = stepsize)
-       for i in tqdm(range(1000)):
+       for i in tqdm(range(300)):
            integrator.step(100)
            state = context.getState(getPositions = True)
            positions = state.getPositions()
@@ -207,7 +205,7 @@ Here we use the Python package mdtraj to compute dihedrals.
 		
    topology = mdtraj.load_psf("./data/butane.psf")
    for theta0_index in range(M):
-       traj = mdtraj.load_dcd(f"./output/traj/traj_{theta0_index}.dcd", topology)
+       traj = mdtraj.load_dcd(f"./output/traj/traj_{theta0_index}.dcd", topology, stride = 10)
        theta = mdtraj.compute_dihedrals(traj, [[3, 6, 9, 13]])
        np.savetxt(f"./output/dihedral/dihedral_{theta0_index}.csv", theta, fmt = "%.5f", delimiter = ",")
 
@@ -217,9 +215,9 @@ Here we use the Python package mdtraj to compute dihedrals.
 Two steps are required to compute PMF using FastMBAR based on umbrella sampling.
 Firstly, we need to compute the relative free energies of the biased ensembles used in umbrella sampling,
 i.e., the NVT ensembles with biased potential energies.
-Secondly, samples from umbreall sampling are reweighted to compute the PMF.
+Secondly, samples from umbrella sampling are reweighed to compute the PMF.
 
-Simulations in umbrealla sampling have different biasing potential energies.
+Simulations in umbrella sampling have different biasing potential energies.
 They are viewed as different thermodynamic states.
 Therefore, we have :math:`M` states and samples from these states.
 As shown in Usage, we can use FastMBAR to compute the relative free energies of these :math:`M` states.
@@ -234,7 +232,7 @@ and :math:`\theta(x)` is the dihedral (3-6-9-13) calculated based on Cartesian c
 Compared to general cases, the reduced potential energy matrix :math:`A_{M,N}` in umbrella sampling has a special property.
 The energy functions of the :math:`M` states are :math:`U(x) + B_i(x)`. They all have the common component :math:`U(x)`.
 Removing the common component :math:`U(x)` from the energy matrix :math:`A_{M,N}` does not affect the relative free
-energies of the :math:`M` states. Therefore, we can ommitting computing :math:`U(x)` when compute the energy matrix :math:`A_{M,N}`,
+energies of the :math:`M` states. Therefore, we can omitting computing :math:`U(x)` when compute the energy matrix :math:`A_{M,N}`,
 as shown in Fig. 2
 	   
 .. image:: ../../examples/butane/data/Fig_2.png	   
@@ -243,7 +241,7 @@ as shown in Fig. 2
 As shown in Fig. 2, we can compute the reduced energy matrix :math:`A_{M,N}` just based on dihedral values from umbrella sampling.
 In the following script, we read the dihedral values and compute the reduced energy matrix :math:`A_{M,N}`.
 Based on the reduced energy matrix and the number of conformations sampled from each state,
-we can compute the relative free enegies of the :math:`M` states using FastMBAR.
+we can compute the relative free energies of the :math:`M` states using FastMBAR.
 
 .. code-block:: python
 		
@@ -255,7 +253,7 @@ we can compute the relative free enegies of the :math:`M` states using FastMBAR.
        thetas.append(theta)
        num_conf.append(len(theta))
    thetas = np.concatenate(thetas)
-   num_conf = np.array(num_conf).astype(np.float64)
+   num_conf = np.array(num_conf)
    N = len(thetas)
    
    ## compute reduced energy matrix A
@@ -280,14 +278,14 @@ we can compute the relative free enegies of the :math:`M` states using FastMBAR.
 
 Now we are ready to compute the PMF.
 Solving MBAR equations yields the relative free energies of the :math:`M` states,
-all of which have biasing potential enegies.
-Knowing the relative free enegies of the :math:`M` states enables us to compute
-the PMF using an easy reweighting procesure.
+all of which have biasing potential energies.
+Knowing the relative free energies of the :math:`M` states enables us to compute
+the PMF using an easy reweighing procedure.
 In order to do that, we need to compute the energy matrix :math:`B_{L,N}` as shown in Fig. 1 and Fig. 2.
 
 To represent the PMF of the dihedral, we split the dihedral range, :math:`[-\pi, \pi]` into :math:`L` windows: :math:`[\theta_{l-1}, \theta_l]` for :math:`l = 1, ..., L`.
 Then we can represent the PMF by computing the relative free energies of these $L$ states each of which has a potential energy of :math:`U(x)`.
-Because the :math:`l` th state is constrainted in the dihedral range :math:`[\theta_{l-1}, \theta_l]`,
+Because the :math:`l` th state is constrained in the dihedral range :math:`[\theta_{l-1}, \theta_l]`,
 we need to add a biasing potential :math:`R_l(\theta)` to enforce the constraint.
 The value of the biasing potential :math:`R_l(\theta) = R_l(\theta(x))` is 0 when :math:`\theta \in [\theta_{l-1}, \theta_l]`, infinity otherwise.
 
@@ -312,19 +310,22 @@ The value of the biasing potential :math:`R_l(\theta) = R_l(\theta(x))` is 0 whe
        B[i, ~indicator] = np.inf
    
    ## compute PMF using the energy matrix B
-   PMF, _ = fastmbar.calculate_free_energies_of_perturbed_states(B)
+   results = fastmbar.calculate_free_energies_of_perturbed_states(B)
+   PMF = results['F']
+   PMF_uncertainty = results['F_std']
    
    ## plot the PMF
    fig = plt.figure(0)
    fig.clf()
-   plt.plot(theta_PMF*180/math.pi, PMF, '-o')
+   plt.errorbar(theta_PMF*180/math.pi, PMF, yerr = PMF_uncertainty, fmt = '-o', 
+   ecolor = 'black', capsize = 2, capthick = 1, markersize = 6)
    plt.xlim(-180, 180)
    plt.xlabel("dihedral")
    plt.ylabel("reduced free energy")
-   plt.savefig("./output/PMF_fast_mbar.pdf")
+   plt.savefig("./output/PMF_fastmbar.pdf")
 
 
-The PMF saved in the file ``./output/PMF_fast_mbar.pdf`` should be like the following PMF:
+The PMF saved in the file ``./output/PMF_fastmbar.pdf`` should be like the following PMF:
 
 .. image:: ../../examples/butane/data/PMF.png
 	   

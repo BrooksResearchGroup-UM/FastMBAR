@@ -1,7 +1,6 @@
 FastMBAR API
 ============
 
-
 ..
    .. currentmodule:: FastMBAR
    .. autoclass:: FastMBAR::FastMBAR

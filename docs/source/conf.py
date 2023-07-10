@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-#
 # Configuration file for the Sphinx documentation builder.
 #
-# This file does only contain a selection of the most common options. For a
-# full list see the documentation:
-# http://www.sphinx-doc.org/en/master/config
+# This file only contains a selection of the most common options. For a full
+# list see the documentation:
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
 
@@ -21,20 +19,14 @@ sys.path.insert(0, os.path.abspath('../../'))
 
 project = 'FastMBAR'
 copyright = '2019 Xinqiang Ding, Jonah Z. Vilseck, and Charles L. Brooks III.'
-author = 'Xinqiang Ding, '
+author = 'Xinqiang Ding'
 
 # The short X.Y version
-version = '0.1.0'
+version = '1.0'
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
-
+release = '1.0-rc'
 
 # -- General configuration ---------------------------------------------------
-
-# If your documentation needs a minimal Sphinx version, state it here.
-#
-# needs_sphinx = '1.0'
-
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
@@ -42,22 +34,13 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx_copybutton'
 ]
 
 autodoc_default_options = {
     'member-order': 'bysource',
 }
-
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
-
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
@@ -67,7 +50,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -77,25 +60,24 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+#html_theme = 'alabaster'
+html_theme = 'sphinx_book_theme'
+html_logo = "_static/logo.png"
+#html_title = "FastMBAR title"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
+
 html_theme_options = {
-    'logo': 'logo.png',
-    'logo_name': False,
-    'github_button': False,
-    'github_user': 'xqding',
-    'github_repo': 'FastMBAR',
-    'github_banner': True,
+    "repository_url": "https://github.com/BrooksResearchGroup-UM/FastMBAR",
+    "use_repository_button": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

@@ -11,8 +11,8 @@ class FastMBAR:
     of num of conformations. The corresponding MBAR equation is solved
     in the constructor. Therefore, the relative free energies of states
     used in the energy matrix is calculated in the constructor. The
-    FastMBAR class method calculate_free_energies_for_perturbed_states
-    can be used to calcualted the relative free energies of perturbed states.
+    method **calculate_free_energies_for_perturbed_states**
+    can be used to calculated the relative free energies of perturbed states.
     """
 
     def __init__(
@@ -27,7 +27,7 @@ class FastMBAR:
         verbose: bool = False,
         method: str = "Newton",
     ) -> None:
-        """Initizlizer for class FastMBAR
+        """Initializer for the class FastMBAR
 
         Parameters
         ----------
@@ -83,20 +83,11 @@ class FastMBAR:
         else:
             raise TypeError("energy has to be a 2-D ndarray or a 2-D tensor.")
 
-        ## num_conf needs to be a 1-D ndarray or a 1-D tensor and has to be an integer array.
+        ## num_conf needs to be a 1-D ndarray or a 1-D tensor.
         if isinstance(num_conf, np.ndarray):
-            if not np.issubdtype(num_conf.dtype, np.integer):
-                raise TypeError("num_conf has to be an integer array.")
             num_conf = num_conf.astype(np.float64)
             self.num_conf = torch.from_numpy(num_conf)
         elif isinstance(num_conf, torch.Tensor):
-            if not num_conf.dtype in [
-                torch.int8,
-                torch.int16,
-                torch.int32,
-                torch.int64,
-            ]:
-                raise TypeError("num_conf has to be an integer tensor.")
             self.num_conf = num_conf.double()
         else:
             raise TypeError("num_conf has to be a 1-D ndarray or a 1-D tensor.")
@@ -306,6 +297,50 @@ class FastMBAR:
             self._DeltaF = torch.mean(DeltaF, dim=2)
             self._DeltaF_std = torch.std(DeltaF, dim=2)
 
+    @property
+    def F(self) -> np.ndarray:
+        """Free energies of the states under the constraint :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
+        where :math:`N_k` is the number of conformations sampled from state k.
+        """
+        return self._F.cpu().numpy()
+
+    @property
+    def F_std(self) -> np.ndarray:
+        """Standard deviation of the free energies of the states under the constraint
+        :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
+        where :math:`N_k` is the number of conformations sampled from state k.
+        """
+        return self._F_std.cpu().numpy()
+
+    @property
+    def F_cov(self) -> np.ndarray:
+        """Covariance matrix of the free energies of the states under the constraint
+        :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
+        where :math:`N_k` is the number of conformations sampled from state k.
+        """
+        return self._F_cov.cpu().numpy()
+
+    @property
+    def DeltaF(self) -> np.ndarray:
+        """Free energy difference between states.
+        :math:`\mathrm{DeltaF}[i,j]` is the free energy difference between state j and state i,
+        i.e., :math:`\mathrm{DeltaF}[i,j] = F[j] - F[i]` .
+        """
+        return self._DeltaF.cpu().numpy()
+
+    @property
+    def DeltaF_std(self) -> np.ndarray:
+        """Standard deviation of the free energy difference between states.
+        :math:`\mathrm{DeltaF_std}[i,j]` is the standard deviation of the free energy
+        difference :math:`\mathrm{DeltaF}[i,j]`.
+        """
+        return self._DeltaF_std.cpu().numpy()
+
+    @property
+    def log_prob_mix(self) -> np.ndarray:
+        """the log probability density of conformations in the mixture distribution."""
+        return self._log_prob_mix.cpu().numpy()
+
     def calculate_free_energies_of_perturbed_states(self, energy_perturbed):
         """calculate free energies for perturbed states.
 
@@ -315,14 +350,22 @@ class FastMBAR:
             each row of the energy_perturbed matrix represents a state and
             the value energy_perturbed[l,n] represents the reduced energy
             of the n'th conformation in the l'th perturbed state.
+
         Returns
         -------
-        F_mean: 1-D float ndarray with a size of (L,)
-            the relative free energies of the perturbed states.
-            it is a mean of multiple estimations if bootstrap is used,
-        F_std: 1-D float ndarray with a size of (L,)
-            the standard deviation of the estimated F. it is esimated
-            using bootstrap. when bootstrap is off, it is None
+        results: dict
+            a dictionary containing the following keys:
+
+            **F** - the free energy of the perturbed states.
+
+            **F_std** - the standard deviation of the free energy of the perturbed states. 
+
+            **F_cov** - the covariance between the free energies of the perturbed states.
+
+            **DeltaF** - :math:`\mathrm{DeltaF}[k,l]` is the free energy difference between state            
+            :math:`k` and state :math:`l`, i.e., :math:`\mathrm{DeltaF}[k,l] = F[l] - F[k]` .
+
+            **DeltaF_std** - the standard deviation of the free energy difference.
         """
 
         if isinstance(energy_perturbed, np.ndarray):
@@ -390,58 +433,6 @@ class FastMBAR:
         }
 
         return results
-
-    @property
-    def F_bootstrap(self):
-        """Free energies of the states.
-        The sum of the free energies is constrained to be zero.
-        """
-        if self.bootstrap is False:
-            raise ValueError("Bootstrap is not used. F_bootstrap is not available.")
-        else:
-            return self._F_bootstrap.cpu().numpy()
-
-    @property
-    def F(self):
-        """Free energies of the states.
-        The sum of the free energies is constrained to be zero.
-        """
-        return self._F.cpu().numpy()
-
-    @property
-    def F_std(self):
-        """Standard deviation of the free energies of the states
-        under the contraint that the sum of the free energies is zero.
-        """
-        return self._F_std.cpu().numpy()
-
-    @property
-    def F_cov(self):
-        """Covariance matrix of the free energies of the states
-        under the contraint that the sum of the free energies is zero.
-        """
-        return self._F_cov.cpu().numpy()
-
-    @property
-    def DeltaF(self):
-        """Free energy difference between states.
-        DeltaF[i,j] is the free energy difference between state j and state i,
-        i.e., DeltaF[i,j] = F[j] - F[i].
-        """
-        return self._DeltaF.cpu().numpy()
-
-    @property
-    def DeltaF_std(self):
-        """Standard deviation of the free energy difference between states.
-        DeltaF_std[i,j] is the standard deviation of the free energy difference DeltaF[i.j].
-        """
-        return self._DeltaF_std.cpu().numpy()
-
-    @property
-    def log_prob_mix(self):
-        """the log probability density of conformations in the mixture distribution."""
-        return self._log_prob_mix.cpu().numpy()
-
 
 def _compute_logp_of_F(F, energy, num_conf):
     logp = (
@@ -634,6 +625,7 @@ def _bootstrap_conf_idx(num_conf, bootstrap_block_size):
         conf_idx.append(sample_idx)
     conf_idx = torch.cat(conf_idx)
     return conf_idx
+
 
 def fmin_newton(f, hess, x_init, args=(), verbose=True, eps=1e-12, max_iter=300):
     """Minimize a function with the Newton's method.
