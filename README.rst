@@ -1,7 +1,3 @@
-.. image:: https://travis-ci.org/xqding/FastMBAR.svg?branch=master
-    :target: https://travis-ci.org/xqding/FastMBAR
-
-    
 FastMBAR: A Fast Solver for Large Scale MBAR/UWHAM Equations
 ============================================================
 
