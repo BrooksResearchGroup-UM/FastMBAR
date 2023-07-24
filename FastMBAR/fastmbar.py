@@ -293,7 +293,7 @@ class FastMBAR:
             self._F_cov = torch.cov(self._F_bootstrap)
 
             self._log_prob_mix = torch.stack(log_prob_mix, dim=0)
-            DeltaF = dF[None, :, :] - dF[:, None, :]
+            DeltaF = self._F_bootstrap[None, :, :] - self._F_bootstrap[:, None, :]
             self._DeltaF = torch.mean(DeltaF, dim=2)
             self._DeltaF_std = torch.std(DeltaF, dim=2)
 
