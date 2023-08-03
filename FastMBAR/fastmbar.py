@@ -184,7 +184,7 @@ class FastMBAR:
 
         ## solve the MBAR equation
         if self.bootstrap is False:
-            dF_init = self.energy.new_zeros(self.M - 1)
+            dF_init = self._initialize_dF(self.energy, self.num_conf)
             dF = _solve_mbar(
                 dF_init.to(self.device),
                 self.energy.to(self.device),
@@ -253,7 +253,7 @@ class FastMBAR:
         elif self.bootstrap is True:
             dFs = []
             log_prob_mix = []
-            dF_init = self.energy.new_zeros(self.M - 1)
+            dF_init = self._initialize_dF(self.energy, self.num_conf)
             self._conf_idx = []
             for _ in range(self.bootstrap_num_rep):
                 conf_idx = _bootstrap_conf_idx(
@@ -341,6 +341,21 @@ class FastMBAR:
         """the log probability density of conformations in the mixture distribution."""
         return self._log_prob_mix.cpu().numpy()
 
+    def _initialize_dF(self, energy, num_conf):
+        ## Initilize dF by self-consistent iteration
+        ## this is only required by the Newton's method, becuase when the inital guess
+        ## is far away from the true solution, the Hessian matrix can be very close to
+        ## singular due to underflow. This can be avoided by using a good initial guess.
+        dF_init = energy.new_zeros(self.M - 1)
+        for _ in range(10):
+            F_init = torch.cat([dF_init.new_zeros(1), dF_init])
+            b = - F_init - torch.log(num_conf)
+            log_prob_mix = torch.logsumexp(-(energy + b[:, None]), dim=0)
+            du = energy + log_prob_mix
+            F = -torch.logsumexp(-du, dim=1)
+            dF_init = F[1:] - F[0]
+        return dF_init
+
     def calculate_free_energies_of_perturbed_states(self, energy_perturbed):
         """calculate free energies for perturbed states.
 
@@ -358,11 +373,11 @@ class FastMBAR:
 
             **F** - the free energy of the perturbed states.
 
-            **F_std** - the standard deviation of the free energy of the perturbed states. 
+            **F_std** - the standard deviation of the free energy of the perturbed states.
 
             **F_cov** - the covariance between the free energies of the perturbed states.
 
-            **DeltaF** - :math:`\mathrm{DeltaF}[k,l]` is the free energy difference between state            
+            **DeltaF** - :math:`\mathrm{DeltaF}[k,l]` is the free energy difference between state
             :math:`k` and state :math:`l`, i.e., :math:`\mathrm{DeltaF}[k,l] = F[l] - F[k]` .
 
             **DeltaF_std** - the standard deviation of the free energy difference.
@@ -433,6 +448,7 @@ class FastMBAR:
         }
 
         return results
+
 
 def _compute_logp_of_F(F, energy, num_conf):
     logp = (
