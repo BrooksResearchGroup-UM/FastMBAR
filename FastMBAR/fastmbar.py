@@ -79,7 +79,7 @@ class FastMBAR:
             energy = energy.astype(np.float64)
             self.energy = torch.from_numpy(energy)
         elif isinstance(energy, torch.Tensor):
-            self.energy = energy.double()
+            self.energy = energy.double().cpu()
         else:
             raise TypeError("energy has to be a 2-D ndarray or a 2-D tensor.")
 
@@ -88,7 +88,7 @@ class FastMBAR:
             num_conf = num_conf.astype(np.float64)
             self.num_conf = torch.from_numpy(num_conf)
         elif isinstance(num_conf, torch.Tensor):
-            self.num_conf = num_conf.double()
+            self.num_conf = num_conf.double().cpu()
         else:
             raise TypeError("num_conf has to be a 1-D ndarray or a 1-D tensor.")
 
