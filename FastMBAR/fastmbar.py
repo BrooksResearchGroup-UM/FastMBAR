@@ -4,6 +4,7 @@ import numpy as np
 import scipy.optimize as optimize
 import math
 
+__version__ = "1.4.2"
 
 class FastMBAR:
     """
