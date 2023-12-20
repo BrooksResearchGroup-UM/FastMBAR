@@ -6,6 +6,11 @@ import math
 
 __version__ = "1.4.2"
 
+## A small diagonal matrix with __EPS__ as its diagonal elements is added 
+## to the Hessian matrix to avoid the case where the Hessian matrix is singular 
+## due to underflow.
+__EPS__ = 1e-16
+
 class FastMBAR:
     """
     The FastMBAR class is initialized with an energy matrix and an array
@@ -557,7 +562,7 @@ def _compute_hessian_loss_of_dF(dF, energy, num_conf):
     F = torch.cat([dF.new_zeros(1), dF])
     H = _compute_hessian_log_likelihood_of_F(F, energy, num_conf)
     H = -H[1:, 1:] / N
-    return H
+    return H + __EPS__ * torch.eye(H.shape[0], device=H.device)
 
 
 def _compute_hessian_loss_of_dF_in_batch(dF, energy, num_conf, batch_size: int):
@@ -565,7 +570,7 @@ def _compute_hessian_loss_of_dF_in_batch(dF, energy, num_conf, batch_size: int):
     F = torch.cat([dF.new_zeros(1), dF])
     H = _compute_hessian_log_likelihood_of_F_in_batch(F, energy, num_conf, batch_size)
     H = -H[1:, 1:] / N
-    return H
+    return H + __EPS__ * torch.eye(H.shape[0], device=H.device)
 
 
 def _solve_mbar(dF_init, energy, num_conf, method, batch_size=None, verbose=False):
