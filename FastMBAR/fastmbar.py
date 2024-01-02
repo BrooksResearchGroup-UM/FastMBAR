@@ -4,7 +4,7 @@ import numpy as np
 import scipy.optimize as optimize
 import math
 
-__version__ = "1.4.2"
+__version__ = "1.4.5"
 
 ## A small diagonal matrix with __EPS__ as its diagonal elements is added 
 ## to the Hessian matrix to avoid the case where the Hessian matrix is singular 
@@ -227,7 +227,7 @@ class FastMBAR:
             W = torch.diag(self.num_conf)
             Q, R = torch.linalg.qr(self.P)
             A = torch.eye(self.M, device=W.device) - R @ W @ R.T
-            self._F_cov = R.T @ torch.linalg.pinv(A, hermitian=True, rtol=1e-8) @ R
+            self._F_cov = R.T @ torch.linalg.pinv(A, hermitian=True, rtol=1e-7) @ R
 
             # # The second way uses equation 6.4
             # if self._batch_size is None:
