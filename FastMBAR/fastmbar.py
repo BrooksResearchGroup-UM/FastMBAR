@@ -6,10 +6,11 @@ import math
 
 __version__ = "1.4.5"
 
-## A small diagonal matrix with __EPS__ as its diagonal elements is added 
-## to the Hessian matrix to avoid the case where the Hessian matrix is singular 
+## A small diagonal matrix with __EPS__ as its diagonal elements is added
+## to the Hessian matrix to avoid the case where the Hessian matrix is singular
 ## due to underflow.
 __EPS__ = 1e-16
+
 
 class FastMBAR:
     """
@@ -305,14 +306,14 @@ class FastMBAR:
 
     @property
     def F(self) -> np.ndarray:
-        """Free energies of the states under the constraint :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
+        r"""Free energies of the states under the constraint :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
         where :math:`N_k` is the number of conformations sampled from state k.
         """
         return self._F.cpu().numpy()
 
     @property
     def F_std(self) -> np.ndarray:
-        """Standard deviation of the free energies of the states under the constraint
+        r"""Standard deviation of the free energies of the states under the constraint
         :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
         where :math:`N_k` is the number of conformations sampled from state k.
         """
@@ -320,7 +321,7 @@ class FastMBAR:
 
     @property
     def F_cov(self) -> np.ndarray:
-        """Covariance matrix of the free energies of the states under the constraint
+        r"""Covariance matrix of the free energies of the states under the constraint
         :math:`\sum_{k=1}^{M} N_k * F_k = 0`,
         where :math:`N_k` is the number of conformations sampled from state k.
         """
@@ -328,7 +329,7 @@ class FastMBAR:
 
     @property
     def DeltaF(self) -> np.ndarray:
-        """Free energy difference between states.
+        r"""Free energy difference between states.
         :math:`\mathrm{DeltaF}[i,j]` is the free energy difference between state j and state i,
         i.e., :math:`\mathrm{DeltaF}[i,j] = F[j] - F[i]` .
         """
@@ -336,7 +337,7 @@ class FastMBAR:
 
     @property
     def DeltaF_std(self) -> np.ndarray:
-        """Standard deviation of the free energy difference between states.
+        r"""Standard deviation of the free energy difference between states.
         :math:`\mathrm{DeltaF_std}[i,j]` is the standard deviation of the free energy
         difference :math:`\mathrm{DeltaF}[i,j]`.
         """
@@ -355,7 +356,7 @@ class FastMBAR:
         dF_init = energy.new_zeros(self.M - 1)
         for _ in range(10):
             F_init = torch.cat([dF_init.new_zeros(1), dF_init])
-            b = - F_init - torch.log(num_conf)
+            b = -F_init - torch.log(num_conf)
             log_prob_mix = torch.logsumexp(-(energy + b[:, None]), dim=0)
             du = energy + log_prob_mix
             F = -torch.logsumexp(-du, dim=1)
@@ -363,7 +364,7 @@ class FastMBAR:
         return dF_init
 
     def calculate_free_energies_of_perturbed_states(self, energy_perturbed):
-        """calculate free energies for perturbed states.
+        r"""calculate free energies for perturbed states.
 
         Parameters
         -----------
